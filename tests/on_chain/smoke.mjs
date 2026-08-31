@@ -98,7 +98,33 @@ const wait = async (tx) => {
 const send = async (fn, args) => await wait(await c.writeContract({ address: A, functionName: fn, args }));
 const view = async (fn, args = []) => await rd.readContract({ address: A, functionName: fn, args });
 const tally = (r) => `${r.votes.a} agree, ${r.votes.d} disagree, ${r.votes.idl} idle`;
-const show = (r) => r.j ? `${r.j.verdict} · fid ${r.j.fidelity} cov ${r.j.coverage} flu ${r.j.fluency} · ${JSON.stringify(r.j.defects)}` : r.msg.slice(0, 80);
+
+/* Certify, then read the certificate the contract actually stored.
+ *
+ * Two ways this test lied to itself before it did this, both worth keeping:
+ *
+ *   A slow round timed out here while the transaction went on to succeed on
+ *   chain, and the timeout was recorded as the contract failing.
+ *
+ *   Worse: an `[EXPECTED]` refusal left the parsed result undefined, and
+ *   `undefined !== "rejected"` is true — so "a clumsy translation is NOT
+ *   rejected" passed on a transaction that never judged anything at all.
+ *
+ * The stored certificate is the fact. The transaction's return value is a
+ * convenience, and asserting on it is asserting on the wrong thing. */
+async function certify(name, src, tgt, text, translation) {
+  const r = await send("certify", [name, src, tgt, text, translation]);
+  for (let i = 0; i < 45; i++) {
+    let stored;
+    try { stored = JSON.parse(String(await view("certificate", [name]))); } catch (e) { stored = null; }
+    if (stored && !stored.error) return { ...r, stored };
+    await new Promise((x) => setTimeout(x, 4000));
+  }
+  return { ...r, stored: null };
+}
+const show = (r) => r.stored
+  ? `${r.stored.verdict} · fid ${r.stored.fidelity} cov ${r.stored.coverage} flu ${r.stored.fluency} · ${JSON.stringify(r.stored.defects)}`
+  : "NOTHING STORED — " + r.msg.slice(0, 70);
 
 // ---------- the rules of the contract, before any model is involved ----------
 const same = await send("certify", ["x", "English", "English", SOURCE, SOURCE]);
@@ -109,36 +135,38 @@ ok("a translation too short to judge is refused",
    tiny.exec === "ERROR" && tiny.msg.includes("too short"), tiny.msg.slice(0, 60));
 
 // ---------- 1. faithful and fluent ----------
-const good = await send("certify", ["good", "English", "Persian", SOURCE, GOOD]);
+const good = await certify("good", "English", "Persian", SOURCE, GOOD);
 ok("a faithful, fluent translation is certified",
-   good.applied && good.j?.verdict === "certified", `${tally(good)} → ${show(good)}`);
+   good.stored?.verdict === "certified", `${tally(good)} → ${show(good)}`);
 ok("Persian numerals are not read as changed numbers",
-   good.j?.defects?.includes("number_changed") === false,
-   JSON.stringify(good.j?.defects));
+   Array.isArray(good.stored?.defects) && !good.stored.defects.includes("number_changed"),
+   JSON.stringify(good.stored?.defects));
 
 // ---------- 2. a number moved ----------
-const bad = await send("certify", ["distorted", "English", "Persian", SOURCE, DISTORTED]);
+const bad = await certify("distorted", "English", "Persian", SOURCE, DISTORTED);
 ok("a translation that moves the price is rejected",
-   bad.applied && bad.j?.verdict === "rejected", `${tally(bad)} → ${show(bad)}`);
+   bad.stored?.verdict === "rejected", `${tally(bad)} → ${show(bad)}`);
 ok("and it is rejected for the right reason",
-   bad.j?.defects?.includes("number_changed"), JSON.stringify(bad.j?.defects));
+   (bad.stored?.defects || []).includes("number_changed"), JSON.stringify(bad.stored?.defects));
 
 // ---------- 3. half of it never translated ----------
-const partial = await send("certify", ["partial", "English", "Persian", SOURCE, PARTIAL]);
+const partial = await certify("partial", "English", "Persian", SOURCE, PARTIAL);
 ok("a half-translated document is rejected",
-   partial.applied && partial.j?.verdict === "rejected", `${tally(partial)} → ${show(partial)}`);
+   partial.stored?.verdict === "rejected", `${tally(partial)} → ${show(partial)}`);
 ok("and coverage, not fidelity, is what catches it",
-   partial.j?.coverage < partial.j?.fidelity ||
-   (partial.j?.defects || []).some((d) => d === "omission" || d === "untranslated"),
-   `cov ${partial.j?.coverage} fid ${partial.j?.fidelity} ${JSON.stringify(partial.j?.defects)}`);
+   partial.stored != null && partial.stored.coverage < partial.stored.fidelity,
+   `cov ${partial.stored?.coverage} < fid ${partial.stored?.fidelity} ${JSON.stringify(partial.stored?.defects)}`);
 
 // ---------- 4. the one that matters: clumsy but correct ----------
-const clumsy = await send("certify", ["clumsy", "English", "Persian", SOURCE, CLUMSY]);
-ok("a clumsy but correct translation is NOT rejected",
-   clumsy.applied && clumsy.j?.verdict !== "rejected", `${tally(clumsy)} → ${show(clumsy)}`);
+const clumsy = await certify("clumsy", "English", "Persian", SOURCE, CLUMSY);
+/* Note what this does NOT say. `!== "rejected"` would be satisfied by a
+   transaction that failed and stored nothing, which is how this assertion
+   passed once without judging anything. It must name the verdict it expects. */
+ok("a clumsy but correct translation is certified with reservations, not rejected",
+   clumsy.stored?.verdict === "certified_with_reservations", `${tally(clumsy)} → ${show(clumsy)}`);
 ok("its fluency is scored below its fidelity, which is the whole distinction",
-   clumsy.j?.fluency < clumsy.j?.fidelity,
-   `flu ${clumsy.j?.fluency} < fid ${clumsy.j?.fidelity}`);
+   clumsy.stored != null && clumsy.stored.fluency < clumsy.stored.fidelity,
+   `flu ${clumsy.stored?.fluency} < fid ${clumsy.stored?.fidelity}`);
 
 // ---------- the gate another contract reads ----------
 const gate = {};

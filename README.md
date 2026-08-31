@@ -131,11 +131,27 @@ source to know what a certificate means.
 
 ## The site
 
-`index.html` is the whole front end: connect a wallet, pick a pair, paste both
-texts, and certify. Both boxes carry `dir="auto"`, so the browser takes writing
-direction from the text itself rather than from a list of languages somebody
-remembered to update — Persian, Arabic and Urdu lay out right-to-left without
-being named anywhere.
+Pick your community and it hands you one of ten short English passages about
+that community's own history — no repeats until you have seen all ten. You
+translate it, and both texts are submitted together. `texts.js` holds all 160.
+
+**The source language is not something you can set.** It is English, fixed by
+the passage, and the box is read-only. That is not a simplification: a label a
+reader can change independently of the text will eventually disagree with it,
+and this page was built after a round came back `UNDETERMINED` for exactly that
+reason — a target of Hindi-Urdu selected over an English-to-Persian pair, which
+the leader called "fluent Urdu" and the validators would not.
+
+For the mismatches a script check can still catch, the page warns before
+anything is signed: paste Arabic script under a German label and it says so, and
+says what will happen if you sign anyway.
+
+Both boxes carry `dir="auto"`, so the browser takes writing direction from the
+text itself rather than from a list of languages somebody remembered to update —
+Persian, Arabic and Urdu lay out right-to-left without being named anywhere.
+
+Scores are coloured on a scale rather than by a label: green at the top, through
+amber, to red — so 42 and 85 do not look alike.
 
 ## Tests
 
