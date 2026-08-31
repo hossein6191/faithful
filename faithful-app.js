@@ -411,6 +411,55 @@ async function renderLedger() {
   body.innerHTML = rows.join("");
 }
 
+/* ------------------------------------------------------------------- reset */
+/* Clears only what this browser remembers. Nothing on chain moves: the register
+   keeps existing and every certificate in it stays exactly where it is, which
+   is why the dialog says so and shows the address first. An in-page dialog
+   rather than confirm(), so it can carry that. */
+function openModal() {
+  const box = $("modal-reg");
+  box.innerHTML = reg
+    ? `<p class="note" style="margin:0">The register you would be forgetting — copy it if you want it back:</p>
+       <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+         <input class="mono" readonly value="${reg}" style="flex:1 1 260px" onclick="this.select()">
+         <a class="btn" style="text-decoration:none;display:inline-flex;align-items:center"
+            href="${EXPLORER}/address/${reg}" target="_blank" rel="noopener">explorer ↗</a>
+       </div>`
+    : `<p class="note" style="margin:0">No register is loaded, so there is nothing to lose.</p>`;
+  $("modal").hidden = false;
+  $("modal-no").focus();
+}
+function closeModal() { $("modal").hidden = true; $("reset").focus(); }
+
+$("reset").onclick = openModal;
+$("modal-no").onclick = closeModal;
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modal").hidden) closeModal(); });
+
+$("modal-yes").onclick = () => {
+  for (const k of Object.keys(localStorage)) {
+    if (k === "faithful_register" || k.startsWith("faithful_seen_")) localStorage.removeItem(k);
+  }
+  reg = null; target = null;
+  document.body.setAttribute("data-ready", "0");
+  for (const id of ["step1", "step2", "step3"]) done(id, false);
+  $("addr").value = ""; $("regLink").textContent = "";
+  $("source").setAttribute("readonly", "");
+  $("source").value = ""; $("target").value = ""; $("cert-name").value = "";
+  $("giveSt").textContent = "";
+  $("mismatch").setAttribute("data-on", "0");
+  $("rules").textContent = "load a register to read its published rules";
+  $("result").hidden = true; $("result-empty").hidden = false;
+  $("resultLink").textContent = ""; $("certSt").textContent = "";
+  $("ledger").querySelector("tbody").innerHTML =
+    `<tr><td style="color:#94a3b8;border:0">nothing loaded yet</td></tr>`;
+  $("log").textContent = "ready.";
+  paintLangs(); chooseTarget(); counts();
+  closeModal();
+  log("cleared. Deploy a register to start again.", "ok");
+  scrollTo({ top: 0, behavior: "smooth" });
+};
+
 paintLangs();
 counts();
 const saved = localStorage.getItem("faithful_register");
