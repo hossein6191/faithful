@@ -440,6 +440,16 @@ function openModal() {
 }
 function closeModal() { $("modal").hidden = true; $("reset").focus(); }
 
+let flashTimer = null;
+function flash(message) {
+  const bar = $("flash");
+  bar.textContent = message;
+  bar.hidden = false;
+  bar.classList.remove("cheer"); void bar.offsetWidth; bar.classList.add("cheer");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { bar.hidden = true; }, 6000);
+}
+
 $("reset").onclick = openModal;
 $("modal-no").onclick = closeModal;
 $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
@@ -469,7 +479,17 @@ $("modal-yes").onclick = () => {
   closeModal();
   log("cleared. " + (account ? "Deploy a register to start again."
                              : "Connect a wallet, then deploy a register."), "ok");
-  scrollTo({ top: 0, behavior: "smooth" });
+  /* The button lives at the foot of the page and everything it clears sits
+     above it, so without both of these a clear reads as a button that did
+     nothing. Go to the top, and say so where it cannot be missed.
+
+     Not a smooth scroll: from the foot of this page that is a long slow ride
+     to somewhere the reader did not ask to go slowly, and it does not run at
+     all in some contexts, which is how this was found. */
+  scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  flash("Cleared. " + (account ? "Deploy a register below to start again."
+                               : "Connect a wallet below, then deploy a register."));
 };
 
 paintLangs();

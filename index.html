@@ -85,6 +85,9 @@ details.newhere>div{padding:0 20px 20px}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style></head><body data-ready="0">
 
+<div id="flash" hidden style="position:sticky;top:0;z-index:60;background:#14321f;
+  box-shadow:inset 0 -1px 0 #22c55e55;color:#bbf7d0;padding:13px 20px;font-weight:500"></div>
+
 <header class="wrap" style="padding-top:34px">
   <p class="eyebrow">Faithful · a GenLayer intelligent contract</p>
   <h1 style="font-size:clamp(27px,4.2vw,42px);margin:14px 0 0;max-inline-size:20ch">
@@ -129,7 +132,6 @@ details.newhere>div{padding:0 20px 20px}
         <input id="addr" class="mono" style="flex:1 1 320px" placeholder="0x… paste a register, or deploy one">
         <button id="load" class="btn">Load</button>
         <button id="deploy" class="btn" disabled>Deploy a register</button>
-        <button id="reset" class="btn" style="margin-inline-start:auto;border-color:#5b3a3a;color:#fca5a5">Reset</button>
       </div>
       <p class="note">Checked with a free read before anything is signed: an address that does not
       answer <code>rules()</code> is refused here rather than costing you a signature to find out.</p>
@@ -218,6 +220,18 @@ details.newhere>div{padding:0 20px 20px}
     <p class="eyebrow">The gate, and who decides it</p>
     <div class="card" style="margin-top:12px">
       <pre id="rules" style="margin:0;max-height:none">load a register to read its published rules</pre>
+    </div>
+  </section>
+
+  <section style="margin-top:34px">
+    <p class="eyebrow">Start over</p>
+    <div class="card" style="margin-top:12px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 320px">
+        <p style="margin:0;color:var(--fg-2)">Forget the register this browser is pointed at and empty
+        every box, so the page begins at deploying again.</p>
+        <p class="note" style="margin:6px 0 0">Nothing on chain is touched. It asks before it does it.</p>
+      </div>
+      <button id="reset" class="btn" style="border-color:#5b3a3a;color:#fca5a5">Reset this page</button>
     </div>
   </section>
 
