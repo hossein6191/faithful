@@ -1,0 +1,208 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Faithful — a translation is certified only when it carries the same commitments</title>
+<meta name="description" content="A GenLayer contract that checks a translation on three separate axes and certifies it in code, not by asking a model whether it passes.">
+<meta name="theme-color" content="#0f172a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#0f172a; --card:#1b2336; --muted:#272f42; --border:#475569;
+  --fg:#f8fafc; --fg-2:#cbd5e1; --fg-3:#94a3b8;
+  --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --ring:#60a5fa;
+  --r:14px;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:400 16px/1.6 'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{width:min(100%,1080px);margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:Lexend,'Source Sans 3',sans-serif;font-weight:600;line-height:1.2;margin:0}
+a{color:var(--ring)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:6px}
+button{cursor:pointer;font:inherit;transition:background .16s,border-color .16s,color .16s}
+button:disabled{cursor:not-allowed;opacity:.45}
+.card{background:var(--card);border:1px solid var(--muted);border-radius:var(--r);padding:22px}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--fg-3)}
+.btn{background:var(--muted);border:1px solid var(--border);color:var(--fg);
+  border-radius:10px;padding:11px 18px;font-weight:500}
+.btn:hover:not(:disabled){border-color:var(--ring)}
+.btn-primary{background:var(--ok);border-color:var(--ok);color:#0f172a;font-weight:600}
+.btn-primary:hover:not(:disabled){background:#16a34a;border-color:#16a34a}
+textarea,input{width:100%;background:#131a2b;color:var(--fg);border:1px solid var(--muted);
+  border-radius:10px;padding:12px 14px;font:400 15px/1.65 'Source Sans 3',sans-serif;
+  resize:vertical;min-block-size:0}
+textarea:focus,input:focus{border-color:var(--ring);outline:none}
+label{display:block;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--fg-3);margin:0 0 8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.lang{display:flex;flex-wrap:wrap;gap:8px}
+.lang button{background:var(--muted);border:1px solid var(--border);color:var(--fg-2);
+  border-radius:999px;padding:7px 14px;font-size:14px;display:inline-flex;align-items:center;
+  gap:7px;min-height:36px}
+.lang button[aria-pressed="true"]{border-color:var(--ok);color:var(--fg);background:#14321f}
+.flag{font-size:15px;line-height:1}
+pre{background:#0b1120;border:1px solid var(--muted);border-radius:10px;padding:14px;
+  overflow:auto;font-size:12.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;
+  max-height:340px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:start;padding:9px 10px;border-bottom:1px solid var(--muted);vertical-align:top}
+th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--fg-3);font-weight:400}
+.bar{height:7px;border-radius:99px;background:var(--muted);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;transition:width .5s ease}
+.pill{display:inline-block;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.copy{max-inline-size:66ch}
+.scroll-x{overflow-x:auto}
+@media (prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+</style></head><body>
+
+<header class="wrap" style="padding-top:34px;padding-bottom:8px">
+  <p class="eyebrow">Faithful · a GenLayer intelligent contract</p>
+  <h1 style="font-size:clamp(28px,4.4vw,44px);margin:14px 0 0;max-inline-size:20ch">
+    A translation is certified only when it carries the same commitments
+  </h1>
+  <p class="copy" style="color:var(--fg-2);margin:16px 0 0">
+    Three axes, judged separately, because they fail differently. The model reports
+    what it finds; it is never asked whether the translation passes. That decision
+    is made in code, with thresholds every validator applies identically.
+  </p>
+</header>
+
+<main class="wrap" style="padding-bottom:80px">
+
+  <section style="margin-top:34px">
+    <div class="grid2" style="gap:14px">
+      <div class="card">
+        <p class="eyebrow">Fidelity · blocks</p>
+        <p style="margin:10px 0 0;color:var(--fg-2)">Do the numbers, dates, names, obligations
+        and negations survive? A translation that reads beautifully but moves a number is not
+        faithful.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Coverage · blocks</p>
+        <p style="margin:10px 0 0;color:var(--fg-2)">How much of the source is there at all.
+        Missing sentences and untranslated blocks land here, not on fidelity.</p>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <p class="eyebrow" style="color:var(--warn)">Fluency · never blocks</p>
+        <p style="margin:10px 0 0;color:var(--fg-2)">Does it read like the language, or like a
+        machine. A clumsy but correct translation is certified <em>with reservations</em> — refusing
+        it would send the translator back to fix something that was not broken. Conflating this
+        with fidelity is how a fluent, wrong translation gets published.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">1 · Connect</p>
+    <div class="card" style="margin-top:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <button id="connect" class="btn btn-primary">Connect wallet</button>
+      <span id="who" class="mono" style="color:var(--fg-3);font-size:13px"></span>
+      <button id="faucet" class="btn" disabled style="margin-inline-start:auto">Get test GEN</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <label for="addr">Register — the Faithful contract this page reads and writes</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input id="addr" class="mono" style="flex:1 1 340px" placeholder="0x…">
+        <button id="load" class="btn">Load</button>
+        <button id="deploy" class="btn" disabled>Deploy a new one</button>
+      </div>
+      <p style="margin:10px 0 0;font-size:13.5px;color:var(--fg-3)">Checked with a free read before
+      anything is signed: an address that does not answer <code>rules()</code> is refused here
+      rather than costing you a signature to find out.</p>
+    </div>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">2 · The pair</p>
+
+    <div class="card" style="margin-top:12px">
+      <label>Source language</label>
+      <div class="lang" id="src-langs"></div>
+
+      <label style="margin-top:22px">Target language — the sixteen Discord communities, and any other you type</label>
+      <div class="lang" id="tgt-langs"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <input id="tgt-other" placeholder="or type any language" style="flex:1 1 220px">
+      </div>
+
+      <div class="grid2" style="margin-top:24px">
+        <div>
+          <label for="source">Source text <span id="src-count" style="color:var(--fg-3)"></span></label>
+          <textarea id="source" rows="9" dir="auto" spellcheck="false">Acme Cloud charges 20 USD per seat each month. Overage is billed at 0.10 USD per gigabyte. Invoices are due within 14 days. We may change these terms with 30 days notice. Support requests are answered within 2 business days.</textarea>
+        </div>
+        <div>
+          <label for="target">Translation <span id="tgt-count" style="color:var(--fg-3)"></span></label>
+          <textarea id="target" rows="9" dir="auto" spellcheck="false">اکمی کلاود ماهانه ۲۰ دلار برای هر کاربر دریافت می‌کند. مصرف مازاد به ازای هر گیگابایت ۰٫۱۰ دلار محاسبه می‌شود. مهلت پرداخت صورت‌حساب‌ها ۱۴ روز است. ما می‌توانیم این شرایط را با ۳۰ روز اطلاع قبلی تغییر دهیم. به درخواست‌های پشتیبانی ظرف ۲ روز کاری پاسخ داده می‌شود.</textarea>
+        </div>
+      </div>
+      <p style="margin:12px 0 0;font-size:13.5px;color:var(--fg-3)">
+        Both boxes carry <code>dir="auto"</code>, so the browser takes the writing direction from
+        the text itself rather than from a list of languages somebody remembered to update.
+        Persian, Arabic and Urdu lay out right-to-left here without being named.
+      </p>
+
+      <div style="margin-top:22px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <input id="cert-name" style="flex:0 1 240px" value="acme-fa" aria-label="Certificate name">
+        <button id="certify" class="btn btn-primary" disabled>Certify this translation</button>
+        <span id="certSt" style="font-size:13.5px;color:var(--fg-3)"></span>
+      </div>
+      <p style="margin:12px 0 0;font-size:13.5px;color:var(--fg-3)">Try it as it stands, then move a
+      number in the translation and run it again. Same text, different verdict — and the defect is
+      named.</p>
+    </div>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">3 · What came back</p>
+    <div class="card" id="result-card" style="margin-top:12px">
+      <p id="result-empty" style="margin:0;color:var(--fg-3)">Nothing certified yet.</p>
+      <div id="result" hidden>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <span id="verdict" class="pill"></span>
+          <span id="verdict-note" style="color:var(--fg-2);font-size:14.5px"></span>
+        </div>
+        <div style="margin-top:22px;display:grid;gap:16px" id="scores"></div>
+        <div id="defects" style="margin-top:22px"></div>
+        <p id="notes" class="copy" style="margin:18px 0 0;color:var(--fg-2);font-size:15px"></p>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">Log</p>
+    <pre id="log" style="margin-top:12px">ready.</pre>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">Certificates in this register</p>
+    <div class="card scroll-x" style="margin-top:12px">
+      <table id="ledger"><tbody><tr><td style="color:var(--fg-3);border:0">nothing loaded yet</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <section style="margin-top:44px">
+    <p class="eyebrow">The gate, and who decides it</p>
+    <div class="card" style="margin-top:12px">
+      <pre id="rules" style="margin:0;max-height:none">load a register to read its published rules</pre>
+      <p class="copy" style="margin:16px 0 0;color:var(--fg-2)">
+        The thresholds live in the contract, not in the prompt. A model that is asked to score
+        cannot approve anything on its own, because approving is not something it is asked to do.
+        Validators must agree on the verdict each derives independently — and below a floor the
+        scores are not compared at all, since two readers who both saw it fall short have already
+        agreed about everything the contract acts on.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<script type="module" src="./faithful-app.js"></script>
+</body></html>
