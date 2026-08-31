@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Faithful — a translation is certified only when it carries the same commitments</title>
+<title>Faithful · a translation is certified only when it carries the same commitments</title>
 <meta name="description" content="Pick your community, take a passage about its history, translate it, and have validators certify whether your translation carries the same commitments.">
 <meta name="theme-color" content="#0f172a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b2336'/%3E%3Cpath d='M16 34l10 10 22-24' fill='none' stroke='%2322c55e' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
@@ -69,6 +69,7 @@ th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;
 .scroll-x{overflow-x:auto}
 .gate{opacity:.42;pointer-events:none;transition:opacity .4s ease}
 body[data-ready="1"] .gate{opacity:1;pointer-events:auto}
+body[data-ready="1"] .lockmsg{display:none}
 .note{font-size:13.5px;color:var(--fg-3);margin:10px 0 0}
 .warnbox{margin-top:14px;border-radius:10px;padding:12px 14px;font-size:14.5px;display:none}
 .warnbox[data-on="1"]{display:block}
@@ -106,7 +107,7 @@ details.newhere>div{padding:0 20px 20px}
         what it found; the thresholds live in the contract, where every validator applies the same ones.
         A lenient reader cannot wave anything through on its own.</p>
         <p style="margin:12px 0 0">Fidelity and coverage can refuse a translation. <strong>Fluency never
-        does</strong> — a faithful translation that reads clumsily is certified <em>with
+        does</strong>. A faithful translation that reads clumsily is certified <em>with
         reservations</em>, because refusing it would send you back to fix something that was not broken.</p>
       </div>
     </details>
@@ -121,7 +122,7 @@ details.newhere>div{padding:0 20px 20px}
         <span id="who" class="mono" style="color:var(--fg-3);font-size:13px"></span>
         <button id="faucet" class="btn" disabled style="margin-inline-start:auto">Get test GEN</button>
       </div>
-      <p class="note">A register is one deployed Faithful contract — it holds the certificates. You
+      <p class="note">A register is one deployed Faithful contract, and it holds the certificates. You
       need one before anything can be certified, so this step comes first. Deploy your own, or paste
       an address somebody has shared.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
@@ -133,12 +134,14 @@ details.newhere>div{padding:0 20px 20px}
       <p class="note">Checked with a free read before anything is signed: an address that does not
       answer <code>rules()</code> is refused here rather than costing you a signature to find out.</p>
       <p id="regLink" class="note"></p>
+      <p id="next" class="note" style="color:#fde68a"></p>
     </div>
   </section>
 
   <section style="margin-top:34px" class="gate">
     <div class="step" data-done="0" id="step2"><span class="n">2</span>
-      <p class="eyebrow" style="margin:0">Choose your community and take a passage</p></div>
+      <p class="eyebrow" style="margin:0">Choose your community and take a passage</p>
+      <span class="lockmsg note" style="margin:0">locked until step 1 has a register</span></div>
     <div class="card">
       <label>Translate into</label>
       <div class="lang" id="tgt-langs"></div>
@@ -148,14 +151,15 @@ details.newhere>div{padding:0 20px 20px}
         <span id="giveSt" class="note" style="margin:0"></span>
       </div>
       <p class="note">Ten passages for each community, about its own history, and the button does not
-      repeat one until you have seen them all. They are short on purpose — a passage you can translate
+      repeat one until you have seen them all. They are short on purpose: a passage you can translate
       in two minutes gets translated.</p>
     </div>
   </section>
 
   <section style="margin-top:34px" class="gate">
     <div class="step" data-done="0" id="step3"><span class="n">3</span>
-      <p class="eyebrow" style="margin:0">Translate it</p></div>
+      <p class="eyebrow" style="margin:0">Translate it</p>
+      <span class="lockmsg note" style="margin:0">locked until step 1 has a register</span></div>
     <div class="card">
       <div class="grid2">
         <div>
@@ -164,7 +168,7 @@ details.newhere>div{padding:0 20px 20px}
             placeholder="press “Give me a passage” above"></textarea>
         </div>
         <div>
-          <label for="target">Your translation · <span id="tgt-lang">—</span> <span id="tgt-count" style="color:var(--fg-3)"></span></label>
+          <label for="target">Your translation · <span id="tgt-lang">not chosen yet</span> <span id="tgt-count" style="color:var(--fg-3)"></span></label>
           <textarea id="target" rows="8" dir="auto" spellcheck="false"
             placeholder="write your translation here"></textarea>
         </div>
@@ -174,7 +178,7 @@ details.newhere>div{padding:0 20px 20px}
       <div id="mismatch" class="warnbox"></div>
 
       <div style="margin-top:20px">
-        <label for="cert-name">Certificate name — your own label for this one, and it can only be used once</label>
+        <label for="cert-name">Certificate name · your own label, and it can only be used once</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <input id="cert-name" style="flex:0 1 260px" placeholder="e.g. history-fa-1">
           <button id="certify" class="btn btn-primary" disabled>Certify this translation</button>
@@ -225,7 +229,7 @@ details.newhere>div{padding:0 20px 20px}
     <h2 style="font-size:19px;margin:0">Start over?</h2>
     <p class="copy" style="color:var(--fg-2);margin:12px 0 0;font-size:15px">
       This clears the register this page is pointed at, which passages you have already been given,
-      and everything in the boxes. It touches nothing on chain — every certificate you have made stays
+      and everything in the boxes. It touches nothing on chain. Every certificate you have made stays
       exactly where it is, and the register keeps existing whether or not this page remembers it.
     </p>
     <div id="modal-reg" style="margin-top:16px"></div>

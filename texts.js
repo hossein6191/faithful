@@ -3,12 +3,12 @@
  * They are in English because English is the source: you translate a passage
  * about your own history into your own language. That is a better exercise
  * than a generic paragraph, and it gives the checker real numbers, dates and
- * names to lose — which is exactly what fidelity is measuring.
+ * names to lose, which is exactly what fidelity is measuring.
  *
  * Each is kept short on purpose. A passage you can translate in two minutes
  * gets translated; a page does not.
  *
- * Written from general knowledge and limited to long-settled facts — founding
+ * Written from general knowledge and limited to long-settled facts: founding
  * dates, dynasties, well-known works. Worth a skim before you rely on any one
  * of them.
  */
@@ -208,7 +208,7 @@ export const PASSAGES = {
 };
 
 /* Which scripts a passage in this language may legitimately be written in.
-   Used only to warn, never to refuse — a language can be written in more than
+   Used only to warn, never to refuse. A language can be written in more than
    one script, and Hindi-Urdu is written in two. */
 export const SCRIPTS = {
   English: ["latin"], Indonesian: ["latin"], Latam: ["latin"], Nigerian: ["latin"],
@@ -232,7 +232,7 @@ const RANGES = {
 };
 
 /* The script a passage is mostly written in, by counting characters rather than
-   by looking at the first one — a Persian sentence that opens with a Latin
+   by looking at the first one. A Persian sentence that opens with a Latin
    product name is still Persian. */
 export function scriptOf(text) {
   const counts = {};

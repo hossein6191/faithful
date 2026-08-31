@@ -23,7 +23,16 @@ const log = (line, cls) => {
 const link = (path, text) => `<a href="${EXPLORER}${path}" target="_blank" rel="noopener">${text} ↗</a>`;
 const done = (id, yes) => $(id).setAttribute("data-done", yes ? "1" : "0");
 
-/* Flags label a community, never a language on their own — every chip carries the
+/* Whatever state the page is in, one line says what to do now. Without it a
+   reset leaves everything dim and correct and looking like a dead end. */
+function sayNext() {
+  const el = $("next");
+  if (!account) { el.textContent = "Start by connecting your wallet above."; return; }
+  if (!reg) { el.textContent = "Now press “Deploy a register”, or paste one you already have and press Load."; return; }
+  el.textContent = "";
+}
+
+/* Flags label a community, never a language on their own, so every chip carries the
    name beside it. Arabic is not one country and Hindi-Urdu is two, so a flag
    alone would be saying something false. */
 const COMMUNITIES = [
@@ -79,7 +88,7 @@ function paintLangs() {
   }
 }
 function chooseTarget() {
-  $("tgt-lang").textContent = target || "—";
+  $("tgt-lang").textContent = target || "not chosen yet";
   $("src-lang").textContent = SOURCE_LANG;
   done("step2", !!target && !!$("source").value.trim());
   suggestName();
@@ -94,7 +103,7 @@ function giveOne() {
   if (!target) { $("giveSt").textContent = "pick a community first"; return; }
   const got = nextPassage(target);
   if (!got) {
-    $("giveSt").innerHTML = `<span style="color:#f59e0b">no passages written for “${target}” yet — paste your own source below</span>`;
+    $("giveSt").innerHTML = `<span style="color:#f59e0b">no passages written for “${target}” yet, so paste your own source below</span>`;
     $("source").removeAttribute("readonly");
     $("source").value = "";
     $("source").placeholder = "paste an English source text";
@@ -134,7 +143,7 @@ function suggestName() {
 }
 
 /* A warning, never a refusal. A language can be written in more than one script,
-   and this only catches the mismatches a script check can catch — which is why
+   and this only catches the mismatches a script check can catch, which is why
    the source is not something the reader sets at all. */
 function checkMismatch() {
   const box = $("mismatch");
@@ -193,10 +202,10 @@ $("connect").onclick = async () => {
   $("who").textContent = account;
   $("faucet").disabled = false; $("deploy").disabled = false;
   log("connected " + account, "ok");
-  counts();
+  counts(); sayNext();
   const balance = BigInt(await rpc("eth_getBalance", [account, "latest"]) || "0x0");
   if (balance < BigInt(1e17))
-    log("  balance is low — press Get test GEN, or the wallet will refuse to sign without saying why", "warn");
+    log("  balance is low. Press Get test GEN, or the wallet will refuse to sign without saying why.", "warn");
 };
 $("faucet").onclick = async () => {
   await rpc("sim_fundAccount", { account_address: account, amount: 300e18 });
@@ -209,7 +218,7 @@ async function wait(tx, label) {
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 4000));
     const t = await rpc("eth_getTransactionByHash", [tx]);
-    if (t?.status === "CANCELED") { log("  ✗ " + label + " was cancelled by the network — try again", "bad"); return null; }
+    if (t?.status === "CANCELED") { log("  ✗ " + label + " was cancelled by the network. Try again.", "bad"); return null; }
     if (t?.status === "FINALIZED") {
       const lr = t.consensus_data?.leader_receipt, one = Array.isArray(lr) ? lr[0] : lr;
       let msg = ""; try { msg = new TextDecoder().decode(Uint8Array.from(atob(one.result), (c) => c.charCodeAt(0))); } catch (e) {}
@@ -229,7 +238,7 @@ async function wait(tx, label) {
     }
     if (i % 3 === 0 && i) log("  … " + label + " (" + i * 4 + "s)");
   }
-  log("  ✗ " + label + " timed out — it may still land; reload and check the ledger", "bad");
+  log("  ✗ " + label + " timed out. It may still land; reload and check the ledger.", "bad");
   return null;
 }
 
@@ -237,7 +246,7 @@ async function wait(tx, label) {
 async function useRegister(address) {
   let rules;
   try { rules = JSON.parse(String(await reader().readContract({ address, functionName: "rules", args: [] }))); }
-  catch (e) { log("  ✗ that address did not answer rules() — it is not a Faithful register", "bad"); return false; }
+  catch (e) { log("  ✗ that address did not answer rules(), so it is not a Faithful register", "bad"); return false; }
   reg = address;
   localStorage.setItem("faithful_register", address);
   $("addr").value = address;
@@ -246,7 +255,7 @@ async function useRegister(address) {
   document.body.setAttribute("data-ready", "1");
   done("step1", true);
   log("  ✓ register " + address, "ok");
-  counts();
+  counts(); sayNext();
   await renderLedger();
   return true;
 }
@@ -275,7 +284,7 @@ $("deploy").onclick = async () => {
 
 /* ------------------------------------------------------------------ verdict */
 /* Green at the top, red at the bottom, and everything between goes through
-   amber — so a score reads as a position on a scale rather than as a label. */
+   amber, so a score reads as a position on a scale rather than as a label. */
 function scoreColour(v) {
   const n = Math.max(0, Math.min(100, Number(v) || 0));
   const stops = [[0, 239, 68, 68], [55, 245, 158, 11], [85, 163, 197, 63], [100, 34, 197, 94]];
@@ -293,7 +302,7 @@ const BANNERS = {
   certified: ["#22c55e", "Certified",
     "Every commitment survived, nothing is missing, and it reads like the language. Nothing to fix."],
   certified_with_reservations: ["#f59e0b", "Certified, with reservations",
-    "Faithful and complete — safe to publish. It reads like a machine rather than a person, which is worth improving but was never a reason to refuse it."],
+    "Faithful and complete, so it is safe to publish. It reads like a machine rather than a person, which is worth improving but was never a reason to refuse it."],
   rejected: ["#ef4444", "Rejected",
     "Something the source says did not survive the translation. The defect below names what."],
 };
@@ -351,7 +360,7 @@ $("certify").onclick = async () => {
   if (SOURCE_LANG === targetLang) { log("the source and the target are the same language", "warn"); return; }
   for (const [label, text] of [["source", src], ["translation", tgt]]) {
     if (text.length < 20) { log(`the ${label} is too short to judge`, "warn"); return; }
-    if (text.length > 4000) { log(`the ${label} is longer than 4000 characters — split it`, "warn"); return; }
+    if (text.length > 4000) { log(`the ${label} is longer than 4000 characters. Split it into parts.`, "warn"); return; }
   }
 
   $("certify").disabled = true;
@@ -405,7 +414,7 @@ async function renderLedger() {
       <td class="mono" style="color:${scoreColour(e.fidelity)}">${e.fidelity}</td>
       <td class="mono" style="color:${scoreColour(e.coverage)}">${e.coverage}</td>
       <td class="mono" style="color:${scoreColour(e.fluency)}">${e.fluency}</td>
-      <td class="mono" style="color:#94a3b8">${(e.defects || []).join(", ") || "—"}</td>
+      <td class="mono" style="color:#94a3b8">${(e.defects || []).join(", ") || "none"}</td>
     </tr>`);
   }
   body.innerHTML = rows.join("");
@@ -419,7 +428,7 @@ async function renderLedger() {
 function openModal() {
   const box = $("modal-reg");
   box.innerHTML = reg
-    ? `<p class="note" style="margin:0">The register you would be forgetting — copy it if you want it back:</p>
+    ? `<p class="note" style="margin:0">The register you would be forgetting. Copy it if you want it back:</p>
        <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
          <input class="mono" readonly value="${reg}" style="flex:1 1 260px" onclick="this.select()">
          <a class="btn" style="text-decoration:none;display:inline-flex;align-items:center"
@@ -454,13 +463,17 @@ $("modal-yes").onclick = () => {
   $("ledger").querySelector("tbody").innerHTML =
     `<tr><td style="color:#94a3b8;border:0">nothing loaded yet</td></tr>`;
   $("log").textContent = "ready.";
-  paintLangs(); chooseTarget(); counts();
+  $("deploy").disabled = !account;
+  $("faucet").disabled = !account;
+  paintLangs(); chooseTarget(); counts(); sayNext();
   closeModal();
-  log("cleared. Deploy a register to start again.", "ok");
+  log("cleared. " + (account ? "Deploy a register to start again."
+                             : "Connect a wallet, then deploy a register."), "ok");
   scrollTo({ top: 0, behavior: "smooth" });
 };
 
 paintLangs();
 counts();
+sayNext();
 const saved = localStorage.getItem("faithful_register");
 if (saved) { log("loading " + saved + " …"); useRegister(saved); }
