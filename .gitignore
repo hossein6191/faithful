@@ -6,3 +6,6 @@ artifacts/
 .env
 ._*
 .DS_Store
+
+# the local dev-server launch config, not part of the site
+.claude/

@@ -80,7 +80,7 @@ addition           the translation states something the source does not
 untranslated       substantial parts are left in the source language
 ```
 
-## Built for sixteen communities, open to any language
+## Built for fifteen communities and English, open to any language
 
 `communities()` publishes the Discord communities **and the language each label
 actually means** — because "Latam", "Nigerian", "Bangladeshi" and "Hindi-Urdu"
@@ -91,6 +91,9 @@ otherwise be free to read it differently.
 English · Chinese · Hindi-Urdu · Indonesian · Latam · Nigerian · Russian · Korean
 Turkish · Ukranian · Vietnamese · Arabic · Persian · German · Japanese · Bangladeshi
 ```
+
+Fifteen of those have their own channel in the GenLayer Discord. English is the
+sixteenth, as the language every passage is written in.
 
 Any other language string is passed through untouched, so this works for the
 ones nobody has added yet.
@@ -142,6 +145,19 @@ and this page was built after a round came back `UNDETERMINED` for exactly that
 reason — a target of Hindi-Urdu selected over an English-to-Persian pair, which
 the leader called "fluent Urdu" and the validators would not.
 
+**Only those sixteen are supported, and the page says so rather than letting
+somebody find out after a signature.** Choosing anything else is allowed —
+the contract takes any language string — but there are no passages for it, no
+marker on the globe, and the page states all of that the moment the language is
+picked, in either mode. Keeping the working set that size is what keeps the page
+light; the other sixty-one are still searchable, and are labelled in the list as
+having neither.
+
+The language list is searchable by the names people actually type. "Farsi",
+"Mandarin", "Bengali", "Naija" and "Mexico" all find the right community, which
+they did not until every entry was given its other names and the countries it is
+spoken in.
+
 For the mismatches a script check can still catch, the page warns before
 anything is signed: paste Arabic script under a German label and it says so, and
 says what will happen if you sign anyway.
@@ -167,6 +183,12 @@ that certifies fluent-but-false work.
 
 `DECISIONS.md` records what was measured, including the agreement rule that had
 to be narrowed and the run that forced it.
+
+## Credits
+
+The globe draws [Natural Earth](https://www.naturalearthdata.com/) 110m land
+polygons, public domain, kept in `data/` rather than fetched from a third-party
+URL at page load. Projection by [d3-geo](https://github.com/d3/d3-geo).
 
 ---
 

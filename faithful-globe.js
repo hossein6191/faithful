@@ -15,10 +15,13 @@
  * It never decides which language is chosen. Clicking a marker calls the app's
  * own chooser, the same one the chips and the search list call.
  */
-import { LANGUAGES } from "./languages.js";
+import { SUPPORTED } from "./languages.js";
 
-const LAND_URL =
-  "https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/110m/physical/ne_110m_land.json";
+/* Natural Earth's 110m land polygons, public domain, kept in the repo rather
+   than fetched from somebody else's raw.githubusercontent URL at page load.
+   Coordinates are rounded to two decimals: about a kilometre, which is far
+   finer than a 400px sphere can draw, and a third of the bytes. */
+const LAND_URL = "./data/ne_110m_land.json";
 
 let d3geo = null;
 let land = null;
@@ -216,21 +219,21 @@ export async function startGlobe(canvasId, onPick) {
       ctx.fill();
     }
 
-    /* the languages */
+    /* Only the supported languages are drawn. Seventy-seven markers is a wall
+       of text on a 400px sphere and work spent on labels nobody can read; these
+       sixteen are the ones with passages, and the ones the page can promise. */
     let hover = null;
     ctx.textBaseline = "middle";
-    for (const l of LANGUAGES) {
+    for (const l of SUPPORTED) {
       const p = projection([l.lon, l.lat]);
       if (!p) continue;
       const sel = state.selected === l.label;
       const near = state.pointer && Math.hypot(state.pointer.x - p[0], state.pointer.y - p[1]) < 13;
       if (near) hover = l;
-      const show = l.discord || sel || near;
       ctx.beginPath();
       ctx.arc(p[0], p[1], sel ? 5 : l.discord ? 3.4 : 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? "#E37DF7" : l.discord
-        ? (isDark ? "rgba(227,125,247,.92)" : "rgba(17,15,255,.85)")
-        : (isDark ? "rgba(190,196,230,.55)" : "rgba(60,70,130,.5)");
+      ctx.fillStyle = sel ? "#E37DF7"
+        : (isDark ? "rgba(227,125,247,.92)" : "rgba(17,15,255,.85)");
       ctx.fill();
       if (sel) {
         ctx.beginPath();
@@ -239,18 +242,16 @@ export async function startGlobe(canvasId, onPick) {
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
-      if (!show) continue;
       const right = p[0] > W / 2;
       ctx.textAlign = right ? "right" : "left";
-      ctx.font = (sel || near ? "700 " : "600 ") + (sel || near ? 13 : l.discord ? 12 : 11) + "px Switzer, sans-serif";
+      ctx.font = (sel || near ? "700 " : "600 ") + (sel || near ? 13 : 12) + "px Switzer, sans-serif";
       const tx = p[0] + (right ? -9 : 9);
       ctx.lineJoin = "round";
       ctx.lineWidth = 3.5;
       ctx.strokeStyle = isDark ? "rgba(7,7,15,.9)" : "rgba(250,250,255,.95)";
       ctx.strokeText(l.endonym, tx, p[1]);
-      ctx.fillStyle = sel ? "#E37DF7" : isDark
-        ? (l.discord ? "rgba(240,242,252,.95)" : "rgba(190,196,230,.72)")
-        : (l.discord ? "rgba(20,22,50,.95)" : "rgba(60,70,130,.7)");
+      ctx.fillStyle = sel ? "#E37DF7"
+        : (isDark ? "rgba(240,242,252,.95)" : "rgba(20,22,50,.95)");
       ctx.fillText(l.endonym, tx, p[1]);
     }
     state.hover = hover;
@@ -260,7 +261,7 @@ export async function startGlobe(canvasId, onPick) {
   return {
     /* Facing a point means rotating the globe to its negative. */
     flyTo(label) {
-      const l = LANGUAGES.find((x) => x.label === label);
+      const l = SUPPORTED.find((x) => x.label === label);
       if (!l) return false;
       state.target = [-l.lon, -l.lat];
       return true;
@@ -268,6 +269,6 @@ export async function startGlobe(canvasId, onPick) {
     select(label) { state.selected = label || null; },
     lock() { state.locked = true; },
     release() { state.locked = false; state.target = null; },
-    has(label) { return LANGUAGES.some((x) => x.label === label); },
+    has(label) { return SUPPORTED.some((x) => x.label === label); },
   };
 }

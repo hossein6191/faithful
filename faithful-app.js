@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
 import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
 import { PASSAGES, SCRIPTS, scriptOf } from "./texts.js";
-import { LANGUAGES, search } from "./languages.js";
+import { LANGUAGES, DISCORD, isSupported, search } from "./languages.js";
 
 const byLabel = (l) => LANGUAGES.find((x) => x.label === l) || null;
 
@@ -129,11 +129,14 @@ function combobox(boxId, listId, onPick) {
           <button type="button" class="opt" role="option" data-i="${i}" aria-selected="false">
             <span class="endo">${l.endonym}</span>
             <span>${l.label}</span>
-            ${l.discord ? '<span class="tag">discord</span>' : ""}
+            ${l.discord ? '<span class="tag">discord</span>'
+              : l.source ? '<span class="tag">source</span>'
+              : '<span class="tag" style="background:var(--warnbox-bg);color:var(--warnbox-fg)">no passages · not on the globe</span>'}
             <span class="where">${l.country}</span>
           </button>`).join("")
-      : `<p class="none">No language matches “${query}”. The contract takes any name, so a language
-         that is not listed still works if you paste both texts yourself.</p>`;
+      : `<p class="none">Nothing here matches “${query}”. Seventy-seven languages are listed, by their
+         own name and by the countries they are spoken in, so try either — “Farsi”, “Bengali” and
+         “Mexico” all find something.</p>`;
     list.hidden = false;
     box.setAttribute("aria-expanded", "true");
     cursor = -1;
@@ -151,7 +154,13 @@ function combobox(boxId, listId, onPick) {
     if (globe) {
       const q = box.value.trim();
       if (!q) { globe.release(); }
-      else if (shown.length) { globe.flyTo(shown[0].label); globe.lock(); }
+      else {
+        /* The best match may be one of the sixty-one that has no marker. Fly to
+           the best match that does, so typing never leaves the globe sitting
+           somewhere unrelated with no explanation. */
+        const onGlobe = shown.find((l) => globe.has(l.label));
+        if (onGlobe) { globe.flyTo(onGlobe.label); globe.lock(); }
+      }
     }
   });
   box.addEventListener("focus", () => open(box.value));
@@ -198,14 +207,8 @@ export function chooseLanguage(label) {
   $("tgt-other").value = label;
   paintLangs();
   chooseTarget();
-  if (globe) {
-    globe.select(label);
-    if (!globe.flyTo(label)) {
-      $("giveSt").innerHTML = `<span style="color:var(--warnbox-fg)">${label} has no place on the
-        globe, so nothing moved. It still works everywhere else.</span>`;
-    }
-    globe.lock();
-  }
+  if (globe) { globe.select(label); globe.flyTo(label); globe.lock(); }
+  saySupport();
   /* A passage only comes with guided mode. In a free pair the source is the
      reader's, and handing them one would overwrite what they pasted. */
   if (mode === "guided") giveOne();
@@ -217,12 +220,26 @@ function chooseSource(label) {
   if (globe) { globe.flyTo(label); globe.lock(); }
   chooseTarget();
   sayChallenge();
+  saySupport();
 }
 
 
 
+/* Anything on screen from the last certification belongs to the last one. It
+   goes the moment a new attempt starts, or the explorer link sits there
+   pointing at a transaction that has nothing to do with what is in the boxes. */
+function clearLastResult() {
+  $("certSt").textContent = "";
+  $("resultLink").textContent = "";
+  $("result").hidden = true;
+  $("result-empty").hidden = false;
+}
+
 function giveOne() {
   if (!target) { $("giveSt").textContent = "pick a language first"; return; }
+  clearLastResult();
+  mtOk = false;
+  $("mtAsk").setAttribute("data-on", "0");
   const got = nextPassage(target);
   $("source").setAttribute("readonly", "");
   $("source").value = got.text;
@@ -488,6 +505,7 @@ $("certify").onclick = async () => {
     if (text.length > 4000) { log(`the ${label} is longer than 4000 characters. Split it into parts.`, "warn"); return; }
   }
 
+  clearLastResult();
   $("certify").disabled = true;
   $("certSt").textContent = "waiting on consensus…";
   try {
@@ -545,6 +563,38 @@ async function renderLedger() {
   body.innerHTML = rows.join("");
 }
 
+/* The page fully supports the fifteen languages with their own GenLayer Discord
+   channel, plus English as the source. Anything else is not blocked, because the
+   contract takes any language string, but nothing is promised either: no
+   passages, no place on the globe, and nobody in a channel to argue with the
+   verdict. Saying that once, clearly, beats letting somebody find out after a
+   signature. */
+function saySupport() {
+  const el = $("support");
+  if (!el) return;
+  const bad = [source, target].filter((l) => l && !isSupported(l));
+  if (!bad.length) { el.setAttribute("data-on", "0"); return; }
+  el.setAttribute("data-on", "1");
+  el.style.background = "var(--warnbox-bg)";
+  el.style.boxShadow = "inset 0 0 0 1px #f59e0b88";
+  el.style.color = "var(--warnbox-fg)";
+  el.innerHTML = `<b>${bad.join(" and ")} ${bad.length > 1 ? "are" : "is"} outside the supported set.</b>
+    Fifteen languages have their own channel in the GenLayer Discord, and those plus English are what
+    this page carries passages and map markers for. Keeping the set that size is what keeps the page
+    light enough to run. You can still certify ${bad.length > 1 ? "these" : "this"} — the contract takes
+    any language — but there are no passages, nothing on the globe, and no channel to take the result to.`;
+}
+
+/* The fifteen are named in the opening box from the data rather than typed into
+   the HTML, so the list cannot drift away from what the globe draws and what the
+   contract publishes. */
+(function nameTheFifteen() {
+  const el = $("d15");
+  if (!el) return;
+  const names = DISCORD.map((l) => l.label);
+  el.textContent = names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+})();
+
 /* -------------------------------------------------------------------- modes */
 function setMode(next) {
   mode = next;
@@ -565,6 +615,7 @@ function setMode(next) {
   }
   chooseTarget();
   sayChallenge();
+  saySupport();
   counts();
 }
 
@@ -595,7 +646,29 @@ $("mode-free").onclick = () => setMode("free");
 /* Offered, and argued against in the same breath. It exists so somebody can see
    what the contract does in a language they do not read; the note beside it says
    why doing it by hand is the more interesting test. */
-$("mt").onclick = async () => {
+/* The machine translator asks before it runs. Not to be difficult: a machine
+   translation of a plain sentence scores well because it deserves to, and
+   somebody who lets it fill the box straight away never sees the thing the
+   three scores are actually for. One press, one answer, then it does whatever
+   they asked. */
+let mtOk = false;
+
+$("mt").onclick = () => {
+  if (mtOk) { machineTranslate(); return; }
+  $("mtAsk").setAttribute("data-on", "1");
+  $("mtSt").textContent = "";
+};
+$("mtNo").onclick = () => {
+  $("mtAsk").setAttribute("data-on", "0");
+  $("target").focus();
+};
+$("mtYes").onclick = () => {
+  mtOk = true;
+  $("mtAsk").setAttribute("data-on", "0");
+  machineTranslate();
+};
+
+async function machineTranslate() {
   const src = $("source").value.trim();
   const from = byLabel(source), to = byLabel(target);
   if (!src) { $("mtSt").textContent = "There is nothing in the source box yet."; return; }
@@ -630,7 +703,7 @@ $("mt").onclick = async () => {
     $("mtSt").textContent = "The translator did not answer (" + (e.message || e) + "). Translating by hand always works.";
   }
   $("mt").disabled = false;
-};
+}
 
 /* ------------------------------------------------------------------- reset */
 /* The confirmation lives on the button itself rather than in a dialog. A modal

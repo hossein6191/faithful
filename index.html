@@ -221,12 +221,24 @@ details.newhere>div{padding:0 22px 22px}
 
   <section style="margin-top:30px">
     <details class="newhere" id="newhere" open>
-      <summary>New here? What this is, in four lines</summary>
+      <summary>New here? How this page works, and which languages it covers</summary>
       <div class="copy" style="color:var(--fg-2)">
-        <p style="margin:0">Pick your community. The site hands you a short English passage about that community's own history. You translate it and submit both texts together.</p>
-        <p style="margin:12px 0 0">Five validators then read the pair <em>independently</em> and each scores three things: whether the numbers, dates and obligations survived, how much of the source is actually there, and whether it reads like a person wrote it.</p>
-        <p style="margin:12px 0 0">The model is never asked whether your translation passes. It reports what it found; the thresholds live in the contract, where every validator applies the same ones. A lenient reader cannot wave anything through on its own.</p>
-        <p style="margin:12px 0 0">Fidelity and coverage can refuse a translation. <strong>Fluency never does</strong>. A faithful translation that reads clumsily is certified <em>with reservations</em>, because refusing it would send you back to fix something that was not broken.</p>
+        <p style="margin:0"><b>Fifteen languages have their own channel in the GenLayer Discord</b>, and
+        those are the ones this page is built around: <span id="d15">…</span>. English is the sixteenth,
+        as the language every passage is written in.</p>
+        <p style="margin:12px 0 0">Pick yours and the site hands you a short English passage about that
+        community's own history. You translate it and submit both texts together. Any other language
+        still works, but there are no passages for it and it is not on the globe: keeping the set that
+        size is what keeps the page light enough to run.</p>
+        <p style="margin:12px 0 0">Five validators then read the pair <em>independently</em> and each
+        scores three things: whether the numbers, dates and obligations survived, how much of the source
+        is actually there, and whether it reads like a person wrote it.</p>
+        <p style="margin:12px 0 0">The model is never asked whether your translation passes. It reports
+        what it found; the thresholds live in the contract, where every validator applies the same ones,
+        so a lenient reader cannot wave anything through on its own.</p>
+        <p style="margin:12px 0 0">Fidelity and coverage can refuse a translation. <strong>Fluency never
+        does</strong>. A faithful translation that reads clumsily is certified <em>with reservations</em>,
+        because refusing it would send you back to fix something that was not broken.</p>
       </div>
     </details>
   </section>
@@ -319,18 +331,22 @@ details.newhere>div{padding:0 22px 22px}
             <label for="target" style="margin-bottom:8px">Your translation · <span id="tgt-lang">not chosen yet</span> <span id="tgt-count" style="color:var(--fg-3)"></span></label>
             <button id="mt" class="btn" style="margin-inline-start:auto;margin-bottom:8px;padding:6px 13px;font-size:13px">Translate it for me</button>
           </div>
+          <div id="mtAsk" class="warnbox" style="background:var(--muted);box-shadow:inset 0 0 0 1px var(--border)">
+            <b>Try it yourself first?</b> The interesting test is your own translation: it is where a
+            number slips, a clause goes missing, or the phrasing turns stiff, and that is exactly what
+            the three scores measure. A machine translation of a plain sentence usually scores well,
+            which tells you less.
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+              <button id="mtNo" class="btn" style="padding:8px 15px;font-size:13.5px">I will try it myself</button>
+              <button id="mtYes" class="btn" style="padding:8px 15px;font-size:13.5px">OK, translate it</button>
+            </div>
+          </div>
           <textarea id="target" rows="8" dir="auto" spellcheck="false" placeholder="write your translation here"></textarea>
         </div>
       </div>
       <p class="note">Both boxes carry <code>dir="auto"</code>, so the browser takes writing direction from the text itself rather than from a list of languages somebody remembered to update.</p>
       <p id="mtSt" class="note" style="margin-top:10px"></p>
-        <div id="handnote" class="warnbox" data-on="1" style="background:var(--muted);box-shadow:inset 0 0 0 1px var(--border-soft);color:var(--fg-2)">
-          <b>Translate it yourself if you can.</b> The machine is here so you can see what the contract
-          does without knowing the language, and a good machine translation of a plain sentence scores
-          well because it deserves to. Your own is the more interesting test: it is where a number
-          slips, a clause goes missing, or the phrasing turns stiff, and that is what the three scores
-          are actually measuring.
-        </div>
+        <div id="support" class="warnbox"></div>
         <div id="mismatch" class="warnbox"></div>
       <div style="margin-top:20px">
         <label for="cert-name">Certificate name · your own label, and it can only be used once</label>
@@ -369,11 +385,16 @@ details.newhere>div{padding:0 22px 22px}
     </div>
   </section>
 
-  <section style="margin-top:36px">
-    <p class="eyebrow">The gate, and who decides it</p>
-    <div class="card" style="margin-top:12px">
-      <pre id="rules" style="margin:0;max-height:none">load a register to read its published rules</pre>
-    </div>
+  <section style="margin-top:34px">
+    <details class="newhere">
+      <summary>The gate, in the contract's own words</summary>
+      <div>
+        <p class="copy" style="color:var(--fg-2);margin:0 0 14px">Read straight off the deployed
+        contract by <code>rules()</code>. It is here so the thresholds and the agreement rule can be
+        checked rather than taken on trust.</p>
+        <pre id="rules" style="margin:0;max-height:none">load a register to read its published rules</pre>
+      </div>
+    </details>
   </section>
 
 </main>
