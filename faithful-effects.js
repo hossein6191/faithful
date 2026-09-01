@@ -11,25 +11,22 @@
  * `faithful-app.js` owns all of that and does not know this file exists.
  */
 
+import { LANGUAGES } from "./languages.js";
+
 const $ = (id) => document.getElementById(id);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const RAIN_DENSITY = 130;
 const GLOBE_SPEED = 0.14;
 
-/* The sixteen communities, each with the endonym of the language its label
-   actually means and a home city to place it on the globe. The labels match the
-   chips the app renders, which is how a click on the globe reaches them. */
-const MARKERS = [
-  ["English", "English", 51.5, -0.12], ["Chinese", "中文", 39.9, 116.4],
-  ["Hindi-Urdu", "हिन्दी·اردو", 28.61, 77.21], ["Indonesian", "Bahasa Indonesia", -6.2, 106.85],
-  ["Latam", "Español", 4.71, -74.07], ["Nigerian", "Naija", 6.52, 3.38],
-  ["Russian", "Русский", 55.76, 37.62], ["Korean", "한국어", 37.57, 126.98],
-  ["Turkish", "Türkçe", 39.93, 32.86], ["Ukranian", "Українська", 50.45, 30.52],
-  ["Vietnamese", "Tiếng Việt", 21.03, 105.85], ["Arabic", "العربية", 24.71, 46.68],
-  ["Persian", "فارسی", 35.69, 51.39], ["German", "Deutsch", 52.52, 13.4],
-  ["Japanese", "日本語", 35.68, 139.69], ["Bangladeshi", "বাংলা", 23.81, 90.41],
-].map(([label, name, la, lo]) => ({ label, name, lat: la * Math.PI / 180, lon: lo * Math.PI / 180 }));
+/* Every language the page knows, placed where most of its speakers are. The
+   sixteen with a Discord channel are drawn larger and always labelled; the rest
+   appear as you turn the globe towards them, so somebody can find their own
+   language without it being one of the sixteen. */
+const MARKERS = LANGUAGES.map((l) => ({
+  label: l.label, name: l.endonym, country: l.country, discord: l.discord,
+  lat: l.lat * Math.PI / 180, lon: l.lon * Math.PI / 180,
+}));
 
 let dark = true;
 let globeSel = null;
@@ -81,10 +78,16 @@ function watchChips() {
   sync();
 }
 
-function pickCommunity(label) {
+/* Clicking a marker goes through the app's own chooser, so the globe, the chips
+   and the search box cannot end up disagreeing about which language is chosen.
+   Falling back to a chip click keeps it working if the module is slow to load. */
+async function pickCommunity(label) {
+  try {
+    const app = await import("./faithful-app.js");
+    if (app.chooseLanguage) { app.chooseLanguage(label); return; }
+  } catch (e) {}
   const host = $("tgt-langs");
-  if (!host) return;
-  const b = [...host.querySelectorAll("button")].find((x) => x.textContent.includes(label));
+  const b = host && [...host.querySelectorAll("button")].find((x) => x.textContent.includes(label));
   if (b) b.click();
 }
 
@@ -338,7 +341,12 @@ async function startGlobe() {
         const sel = globeSel === m.label;
         const hovThis = !!look && Math.hypot(look.x - px, look.y - py) < u * 0.055;
         if (hovThis) hm = m;
-        ctx.beginPath(); ctx.arc(px, py, sel ? u * 0.011 : u * 0.0075, 0, Math.PI * 2);
+        /* Seventy-seven labels at one weight is a wall of text, so the ones
+           without a channel are drawn faintly until they face you, and named
+           only when they are near the front, selected, or under the pointer. */
+        const minor = !m.discord && !sel && !hovThis;
+        if (minor && z2 < 0.55) continue;
+        ctx.beginPath(); ctx.arc(px, py, sel ? u * 0.011 : (m.discord ? u * 0.0075 : u * 0.005), 0, Math.PI * 2);
         const da = (0.35 + 0.65 * z2).toFixed(3);
         ctx.fillStyle = sel ? "#E37DF7" : (dark ? "rgba(227,125,247," + da + ")" : "rgba(17,15,255," + da + ")");
         ctx.fill();
@@ -346,7 +354,8 @@ async function startGlobe() {
           ctx.beginPath(); ctx.arc(px, py, u * 0.021 + Math.sin(now / 280) * u * 0.004, 0, Math.PI * 2);
           ctx.strokeStyle = "rgba(227,125,247,.7)"; ctx.lineWidth = 1.4; ctx.stroke();
         }
-        const f = Math.max(10, Math.min(15, fs * 1.4)) * (sel || hovThis ? 1.12 : 1) * (0.84 + 0.16 * z2);
+        const f = Math.max(10, Math.min(15, fs * 1.4)) * (sel || hovThis ? 1.12 : 1)
+                  * (m.discord || sel || hovThis ? 1 : 0.82) * (0.84 + 0.16 * z2);
         ctx.font = "600 " + f.toFixed(1) + "px Switzer, 'Segoe UI', sans-serif";
         const right = px > cx;
         const tx = px + (right ? -u * 0.02 : u * 0.02);
@@ -362,7 +371,7 @@ async function startGlobe() {
           g.addColorStop(1, dark ? "#7D7BFF" : "#110FFF");
           ctx.fillStyle = g;
         } else {
-          ctx.fillStyle = ink(0.42 + 0.58 * z2);
+          ctx.fillStyle = ink((m.discord ? 0.42 : 0.24) + 0.58 * z2);
         }
         ctx.fillText(m.name, tx, py);
         ctx.textAlign = "center";

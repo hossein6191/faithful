@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
 import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
 import { PASSAGES, SCRIPTS, scriptOf } from "./texts.js";
+import { LANGUAGES, search } from "./languages.js";
 
 const $ = (id) => document.getElementById(id);
 const RPC = "https://studio.genlayer.com/api";
@@ -75,15 +76,9 @@ function paintLangs() {
     b.type = "button";
     b.setAttribute("aria-pressed", String(name === target));
     b.innerHTML = `<span class="flag" aria-hidden="true">${flag}</span>${name}`;
-    b.onclick = () => {
-      target = name;
-      $("tgt-other").value = "";
-      paintLangs();
-      chooseTarget();
-      /* Picking a community is the choice; handing over a passage is what makes
-         it usable. Doing both on one click is the whole point of the page. */
-      giveOne();
-    };
+    /* Picking a community is the choice; handing over a passage is what makes
+       it usable. Doing both on one click is the whole point of the page. */
+    b.onclick = () => chooseLanguage(name);
     host.appendChild(b);
   }
 }
@@ -94,9 +89,75 @@ function chooseTarget() {
   suggestName();
   checkMismatch();
 }
-$("tgt-other").addEventListener("input", (e) => {
-  const typed = e.target.value.trim();
-  if (typed) { target = typed; paintLangs(); chooseTarget(); }
+/* Typing used to set the language directly, and that is how a target could end
+   up naming something the text was not. Now typing only searches: the language
+   is set by choosing one, from this list or from the globe, and never by what
+   is half-typed in the box. */
+const langBox = $("tgt-other"), langList = $("lang-list");
+let langCursor = -1, langShown = [];
+
+function closeList() {
+  langList.hidden = true;
+  langBox.setAttribute("aria-expanded", "false");
+  langCursor = -1;
+}
+
+function openList(query) {
+  langShown = search(query).slice(0, 60);
+  if (!langShown.length) {
+    langList.innerHTML = `<p class="none">No language matches “${query}”. The contract accepts any
+      name, so you can still translate into one that is not listed by pasting your own source.</p>`;
+  } else {
+    langList.innerHTML = langShown.map((l, i) => `
+      <button type="button" class="opt" role="option" data-i="${i}" aria-selected="false">
+        <span class="endo">${l.endonym}</span>
+        <span>${l.label}</span>
+        ${l.discord ? '<span class="tag">discord</span>' : ""}
+        <span class="where">${l.country}</span>
+      </button>`).join("");
+  }
+  langList.hidden = false;
+  langBox.setAttribute("aria-expanded", "true");
+  langCursor = -1;
+}
+
+function markCursor() {
+  for (const el of langList.querySelectorAll(".opt")) el.setAttribute("aria-selected", "false");
+  const el = langList.querySelector(`.opt[data-i="${langCursor}"]`);
+  if (el) { el.setAttribute("aria-selected", "true"); el.scrollIntoView({ block: "nearest" }); }
+}
+
+/* One way in, whether the choice came from a chip, this list, or the globe. */
+export function chooseLanguage(label) {
+  target = label;
+  langBox.value = "";
+  closeList();
+  paintLangs();
+  chooseTarget();
+  giveOne();
+}
+
+langBox.addEventListener("input", () => openList(langBox.value));
+langBox.addEventListener("focus", () => openList(langBox.value));
+langBox.addEventListener("keydown", (e) => {
+  if (langList.hidden && (e.key === "ArrowDown" || e.key === "Enter")) { openList(langBox.value); return; }
+  if (e.key === "ArrowDown") { e.preventDefault(); langCursor = Math.min(langShown.length - 1, langCursor + 1); markCursor(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); langCursor = Math.max(0, langCursor - 1); markCursor(); }
+  else if (e.key === "Enter") {
+    e.preventDefault();
+    const pick = langShown[langCursor >= 0 ? langCursor : 0];
+    if (pick) chooseLanguage(pick.label);
+  } else if (e.key === "Escape") closeList();
+});
+langList.addEventListener("mousedown", (e) => {
+  const opt = e.target.closest(".opt");
+  if (!opt) return;
+  e.preventDefault();
+  const pick = langShown[Number(opt.dataset.i)];
+  if (pick) chooseLanguage(pick.label);
+});
+addEventListener("click", (e) => {
+  if (!langList.hidden && !langBox.contains(e.target) && !langList.contains(e.target)) closeList();
 });
 
 function giveOne() {
@@ -362,7 +423,7 @@ $("certify").onclick = async () => {
   const name = $("cert-name").value.trim();
   const src = $("source").value.trim();
   const tgt = $("target").value.trim();
-  const targetLang = $("tgt-other").value.trim() || target;
+  const targetLang = target;
 
   if (SOURCE_LANG === targetLang) { log("the source and the target are the same language", "warn"); return; }
   for (const [label, text] of [["source", src], ["translation", tgt]]) {

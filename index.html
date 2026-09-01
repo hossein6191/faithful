@@ -72,6 +72,14 @@ th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;t
 .bar>i{display:block;height:100%;border-radius:99px;width:0;transition:width .75s cubic-bezier(.22,.9,.28,1),background .5s ease}
 .pill{display:inline-block;border-radius:999px;padding:5px 14px;font-size:13.5px;font-weight:600}
 .copy{max-inline-size:66ch}
+#lang-list{position:absolute;z-index:40;inset-inline:0;top:calc(100% + 6px);max-height:290px;overflow-y:auto;background:var(--btn-bg);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}
+#lang-list[hidden]{display:none}
+#lang-list .opt{display:flex;align-items:baseline;gap:10px;width:100%;text-align:start;background:transparent;border:0;border-radius:10px;padding:9px 11px;color:var(--fg-2);font-size:14.5px;line-height:1.35}
+#lang-list .opt:hover,#lang-list .opt[aria-selected="true"]{background:var(--muted);color:var(--fg)}
+#lang-list .opt .endo{color:var(--fg);font-weight:500}
+#lang-list .opt .where{color:var(--fg-3);font-size:12.5px;margin-inline-start:auto;white-space:nowrap}
+#lang-list .opt .tag{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--g1);border:1px solid var(--border);border-radius:999px;padding:2px 7px}
+#lang-list .none{padding:12px;color:var(--fg-3);font-size:14px}
 .scroll-x{overflow-x:auto}
 .gate{opacity:.42;pointer-events:none;transition:opacity .4s ease}
 body[data-ready="1"] .gate{opacity:1;pointer-events:auto}
@@ -236,7 +244,12 @@ details.newhere>div{padding:0 22px 22px}
           <label>Translate into</label>
           <div class="lang" id="tgt-langs"></div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center">
-            <input id="tgt-other" placeholder="or type any other language" style="flex:1 1 220px">
+            <div style="position:relative;flex:1 1 250px;min-width:0">
+              <input id="tgt-other" role="combobox" aria-expanded="false" aria-autocomplete="list"
+                aria-controls="lang-list" autocomplete="off"
+                placeholder="search every language, or a country">
+              <div id="lang-list" role="listbox" hidden></div>
+            </div>
             <button id="give" class="btn btn-primary">Give me a passage</button>
             <span id="giveSt" class="note" style="margin:0"></span>
           </div>
