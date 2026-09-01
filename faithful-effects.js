@@ -265,6 +265,13 @@ async function startGlobe() {
       ctx.clearRect(0, 0, W, H);
       const INKB = dark ? "226,228,238" : "36,38,72";
       const ink = (a) => "rgba(" + INKB + "," + Math.max(0, Math.min(0.9, a)).toFixed(3) + ")";
+      /* Sea and land were drawn in the same colour at different opacities,
+         which is why the globe read as one grey smudge: the only thing telling
+         a continent from an ocean was how bright it happened to be. They get
+         their own colours now, kept muted so the letters spelling out the
+         land stay the thing you read. */
+      const seaCol = (a) => "rgba(" + (dark ? "86,132,214," : "58,104,196,") + Math.max(0, Math.min(0.9, a)).toFixed(3) + ")";
+      const landCol = (a) => "rgba(" + (dark ? "92,196,142," : "42,142,96,") + Math.max(0, Math.min(0.95, a)).toFixed(3) + ")";
       if (!drag) {
         const idle = reduceMotion ? 0 : (hover ? GLOBE_SPEED * 0.28 : GLOBE_SPEED);
         vel += (idle - vel) * Math.min(1, dt / 900);
@@ -276,7 +283,9 @@ async function startGlobe() {
       const u = Math.min(W, H), cx = W / 2, cy = H / 2 + u * 0.02, R = u * 0.36, fs = u * 0.026;
       const cs = Math.cos(spin), sn = Math.sin(spin), ct = Math.cos(tilt), st = Math.sin(tilt);
       ctx.beginPath(); ctx.arc(cx, cy, R + 1, 0, Math.PI * 2);
-      ctx.strokeStyle = dark ? "rgba(155,106,246,.18)" : "rgba(17,15,255,.13)";
+      ctx.fillStyle = dark ? "rgba(20,34,68,.34)" : "rgba(214,228,250,.5)";
+      ctx.fill();
+      ctx.strokeStyle = dark ? "rgba(155,106,246,.28)" : "rgba(17,15,255,.18)";
       ctx.lineWidth = 1; ctx.stroke();
       sea.length = 0; soil.length = 0;
       const lx = (look && !drag) ? look.x : -1e9, ly = (look && !drag) ? look.y : -1e9;
@@ -300,10 +309,10 @@ async function startGlobe() {
         (land8[b] || (land8[b] = [])).push(px, py, ang, nd.c);
       }
       const dmin = Math.max(0.7, u * 0.0029);
-      const dots = (list, b0, gain, grow) => {
+      const dots = (list, b0, gain, grow, colour) => {
         for (let lvl = 0; lvl < 6; lvl++) {
           const z = (lvl + 0.5) / 6, dsz = dmin * grow * (0.55 + 0.75 * z);
-          ctx.fillStyle = ink(b0 + gain * z);
+          ctx.fillStyle = (colour || ink)(b0 + gain * z);
           ctx.beginPath();
           for (let q = 0; q < list.length; q += 3) {
             const lv = list[q + 2] >= 1 ? 5 : (list[q + 2] * 6) | 0;
@@ -313,14 +322,14 @@ async function startGlobe() {
           ctx.fill();
         }
       };
-      dots(sea, 0.10, 0.20, 1.0);
-      dots(soil, 0.32, 0.42, 1.7);
+      dots(sea, 0.14, 0.26, 1.0, seaCol);
+      dots(soil, 0.34, 0.46, 1.9, landCol);
       for (let bi = 0; bi < 8; bi++) {
         const arr = land8[bi];
         if (!arr || !arr.length) continue;
         const zb = (bi + 0.5) / 8;
         ctx.font = "bold " + (fs * (0.42 + 0.58 * zb)).toFixed(2) + "px Switzer, sans-serif";
-        ctx.fillStyle = ink(0.26 + 0.7 * Math.pow(zb, 0.6));
+        ctx.fillStyle = landCol(0.30 + 0.68 * Math.pow(zb, 0.6));
         for (let t = 0; t < arr.length; t += 4) {
           ctx.save();
           ctx.translate(arr[t], arr[t + 1]);

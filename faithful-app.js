@@ -488,6 +488,59 @@ async function renderLedger() {
   body.innerHTML = rows.join("");
 }
 
+/* ------------------------------------------------------------------- reset */
+/* The confirmation lives on the button itself rather than in a dialog. A modal
+   was built for this once and had to be removed because it stuck: the overlay
+   stayed up and the page would not let go of it. A button that asks a question
+   and answers it in place cannot trap anybody, and it sits in the card that
+   shows the address it is about to forget. */
+let armed = null;
+function disarm() {
+  clearTimeout(armed); armed = null;
+  $("reset").textContent = "Start over";
+  $("reset").style.borderColor = "rgba(239,68,68,.45)";
+  $("resetSt").textContent = "Forget this register and empty every box. Nothing on chain is touched.";
+}
+
+$("reset").onclick = () => {
+  if (!armed) {
+    armed = setTimeout(disarm, 6000);
+    $("reset").textContent = "Yes, clear it";
+    $("reset").style.borderColor = "#ef4444";
+    $("resetSt").innerHTML = reg
+      ? `This forgets <span class="mono">${reg}</span>. Every certificate in it stays exactly where
+         it is, and you can load the address again. Press once more, or wait to cancel.`
+      : "Nothing is loaded, so there is nothing to lose. Press once more, or wait to cancel.";
+    return;
+  }
+  clearTimeout(armed); armed = null;
+
+  for (const k of Object.keys(localStorage)) {
+    if (k === "faithful_register" || k.startsWith("faithful_seen_")) localStorage.removeItem(k);
+  }
+  reg = null; target = null;
+  document.body.setAttribute("data-ready", "0");
+  for (const id of ["step1", "step2", "step3"]) done(id, false);
+  $("addr").value = ""; $("regLink").textContent = "";
+  $("source").setAttribute("readonly", "");
+  $("source").value = ""; $("target").value = ""; $("cert-name").value = "";
+  $("giveSt").textContent = ""; $("tgt-other").value = "";
+  $("mismatch").setAttribute("data-on", "0");
+  $("rules").textContent = "load a register to read its published rules";
+  $("result").hidden = true; $("result-empty").hidden = false;
+  $("resultLink").textContent = ""; $("certSt").textContent = "";
+  $("ledger").querySelector("tbody").innerHTML =
+    `<tr><td style="color:var(--fg-3);border:0">nothing loaded yet</td></tr>`;
+  $("log").textContent = "ready.";
+  $("deploy").disabled = !account;
+  $("faucet").disabled = !account;
+  disarm();
+  $("resetSt").innerHTML = `<span style="color:#22c55e">Cleared.</span> ` +
+    (account ? "Deploy a register to start again." : "Connect a wallet, then deploy a register.");
+  paintLangs(); chooseTarget(); counts(); sayNext();
+  log("cleared.", "ok");
+};
+
 paintLangs();
 counts();
 sayNext();

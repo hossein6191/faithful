@@ -4,7 +4,9 @@
 <title>Faithful · a translation is certified only when it carries the same commitments</title>
 <meta name="description" content="Pick your community, take a passage about its history, translate it, and have validators certify whether your translation carries the same commitments.">
 <meta name="theme-color" content="#07070F">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23161734'/%3E%3Cpath d='M16 34l10 10 22-24' fill='none' stroke='%239B6AF6' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="./assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://api.fontshare.com">
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap">
 <style>
@@ -72,7 +74,7 @@ th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;t
 .bar>i{display:block;height:100%;border-radius:99px;width:0;transition:width .75s cubic-bezier(.22,.9,.28,1),background .5s ease}
 .pill{display:inline-block;border-radius:999px;padding:5px 14px;font-size:13.5px;font-weight:600}
 .copy{max-inline-size:66ch}
-#lang-list{position:absolute;z-index:40;inset-inline:0;top:calc(100% + 6px);max-height:290px;overflow-y:auto;background:var(--btn-bg);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}
+#lang-list{position:absolute;z-index:40;left:0;right:0;width:auto;min-width:280px;top:calc(100% + 6px);max-height:290px;overflow-y:auto;background:var(--btn-bg);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}
 #lang-list[hidden]{display:none}
 #lang-list .opt{display:flex;align-items:baseline;gap:10px;width:100%;text-align:start;background:transparent;border:0;border-radius:10px;padding:9px 11px;color:var(--fg-2);font-size:14.5px;line-height:1.35}
 #lang-list .opt:hover,#lang-list .opt[aria-selected="true"]{background:var(--muted);color:var(--fg)}
@@ -117,8 +119,11 @@ details.newhere>div{padding:0 22px 22px}
 <canvas id="rain" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none"></canvas>
 
 <header style="position:sticky;top:0;z-index:50;background:var(--head-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--border-soft)">
-  <div class="wrap" style="display:flex;align-items:center;gap:14px;height:70px">
-    <svg width="97" height="23" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg);flex:0 0 auto" aria-label="GenLayer">
+  <div class="wrap" style="display:flex;align-items:center;gap:13px;height:70px">
+    <img src="./assets/faithful-mark.svg" alt="Faithful" width="26" height="26" style="flex:0 0 auto;display:block">
+    <span style="font:600 17px/1 Switzer,sans-serif;letter-spacing:-.01em;flex:0 0 auto">Faithful</span>
+    <span aria-hidden="true" style="inline-size:1px;block-size:22px;background:var(--border-soft);flex:0 0 auto"></span>
+    <svg width="82" height="20" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-3);flex:0 0 auto" aria-label="Built on GenLayer">
       <path d="M296.72,79.83v-6.28h7.17l2.69-6.54-13.82-31.49h8.28l9.49,22.42h.26l9.18-22.42h7.96l-13.55,31.65-5.31,12.66h-12.36Z"></path>
       <path d="M106.14,46.33c0-13.83,8.72-22.96,22.42-22.96,11.51,0,19.01,6.2,19.76,15.19h-7.36c-1.29-5.38-5.31-8.45-9.2-8.45h-6.2c-6.34,0-11.99,7.15-11.99,16.08s5.79,15.94,12.54,15.94h4.57c5.04,0,8.99-3,10.63-6.2v-5.66h-10.97v-6.06h17.78v13.9c-2.73,5.31-8.86,10.77-19.62,10.77-13.56,0-22.35-8.31-22.35-22.55Z"></path>
       <path d="M153.44,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM179.33,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
@@ -131,7 +136,7 @@ details.newhere>div{padding:0 22px 22px}
       <polygon points="53.5 32.35 70.04 67.12 54.47 74.9 97.76 91.93 53.5 0 53.5 32.35"></polygon>
       <polygon points="48.64 43.78 58.33 62.94 48.64 67.69 39.47 62.92 48.64 43.78"></polygon>
     </svg>
-    <span class="eyebrow" style="padding-inline-start:14px;border-inline-start:1px solid var(--border-soft)">Faithful · intelligent contract</span>
+    <span class="eyebrow" style="padding-inline-start:13px;border-inline-start:1px solid var(--border-soft)">an intelligent contract</span>
     <span style="flex:1 1 auto"></span>
     <button id="themeToggle" type="button" role="switch" aria-checked="true" aria-label="Switch between dark and light mode">
       <span class="tg-ico" id="tg-sun"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg></span>
@@ -231,6 +236,10 @@ details.newhere>div{padding:0 22px 22px}
       <p class="note">Checked with a free read before anything is signed: an address that does not answer <code>rules()</code> is refused here rather than costing you a signature to find out.</p>
       <p id="regLink" class="note"></p>
       <p id="next" class="note" style="color:var(--warnbox-fg)"></p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--border-soft)">
+        <button id="reset" class="btn" style="border-color:rgba(239,68,68,.45);color:#fca5a5">Start over</button>
+        <span id="resetSt" class="note" style="margin:0">Forget this register and empty every box. Nothing on chain is touched.</span>
+      </div>
     </div>
   </section>
 
