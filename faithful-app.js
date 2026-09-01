@@ -154,16 +154,16 @@ function checkMismatch() {
   const got = scriptOf(text);
   if (!got || expected.includes(got)) {
     box.setAttribute("data-on", "1");
-    box.style.background = "#14321f";
+    box.style.background = "var(--okbox-bg)";
     box.style.boxShadow = "inset 0 0 0 1px #22c55e55";
-    box.style.color = "#cbd5e1";
+    box.style.color = "var(--fg-2)";
     box.innerHTML = `Your translation is written in <b>${got || "an unrecognised script"}</b>, which is what ${target} is written in. Good.`;
     return;
   }
   box.setAttribute("data-on", "1");
-  box.style.background = "#3a1d12";
+  box.style.background = "var(--warnbox-bg)";
   box.style.boxShadow = "inset 0 0 0 1px #f59e0b88";
-  box.style.color = "#fde68a";
+  box.style.color = "var(--warnbox-fg)";
   box.innerHTML = `<b>This does not look like ${target}.</b> You selected ${target}, which is written in
     ${expected.join(" or ")}, but the text you pasted is mostly <b>${got}</b>.
     Validators asked to check a ${target} translation of a text that is not in ${target} will not agree
@@ -325,9 +325,9 @@ export function paintResult(r) {
   banner.innerHTML =
     `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
        <span class="pill" style="background:${colour}26;color:${colour}">${title}</span>
-       <span class="mono" style="color:#94a3b8;font-size:13px">${r.name || ""}</span>
+       <span class="mono" style="color:var(--fg-3);font-size:13px">${r.name || ""}</span>
      </div>
-     <p class="copy" style="margin:10px 0 0;color:#cbd5e1;font-size:15px">${blurb}</p>`;
+     <p class="copy" style="margin:10px 0 0;color:var(--fg-2);font-size:15px">${blurb}</p>`;
   void banner.offsetWidth;
 
   const floors = { fidelity: 85, coverage: 85, fluency: 60 };
@@ -338,7 +338,7 @@ export function paintResult(r) {
     return `<div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px">
         <span style="font-weight:600;text-transform:capitalize">${k}</span>
-        <span style="color:#94a3b8;font-size:13px;margin-inline-start:auto">${blocks[k]}</span>
+        <span style="color:var(--fg-3);font-size:13px;margin-inline-start:auto">${blocks[k]}</span>
         <span class="mono" style="color:${c};font-weight:600;font-size:17px">${v}</span>
       </div>
       <div class="bar"><i data-w="${Math.max(0, Math.min(100, v))}" style="background:${c}"></i></div>
@@ -351,7 +351,7 @@ export function paintResult(r) {
   const defects = r.defects || [];
   $("defects").innerHTML = defects.length
     ? `<p class="eyebrow" style="color:#ef4444">What did not survive</p>
-       <ul style="margin:10px 0 0;padding-inline-start:20px;color:#cbd5e1">
+       <ul style="margin:10px 0 0;padding-inline-start:20px;color:var(--fg-2)">
          ${defects.map((d) => `<li><code>${d}</code></li>`).join("")}</ul>`
     : `<p class="eyebrow" style="color:#22c55e">No defect named</p>`;
   $("notes").textContent = r.notes || "";
@@ -392,7 +392,7 @@ $("certify").onclick = async () => {
     paintResult({ ...res.j, name });
     $("resultLink").innerHTML = link("/tx/" + tx, "this certification on the explorer") +
       " · " + link("/address/" + reg, "the register");
-    $("result-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({ top: $("result-card").getBoundingClientRect().top + window.scrollY - 90, behavior: "smooth" });
     await renderLedger();
   } catch (e) { log("  ✗ " + (e.message || e), "bad"); $("certSt").textContent = ""; }
   $("certify").disabled = false;
@@ -407,7 +407,7 @@ async function renderLedger() {
   try { names = JSON.parse(String(await rd.readContract({ address: reg, functionName: "names", args: [] }))); }
   catch (e) { return; }
   const body = $("ledger").querySelector("tbody");
-  if (!names.length) { body.innerHTML = `<tr><td style="color:#94a3b8;border:0">this register is empty</td></tr>`; return; }
+  if (!names.length) { body.innerHTML = `<tr><td style="color:var(--fg-3);border:0">this register is empty</td></tr>`; return; }
   const rows = [`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th></tr>`];
   for (const n of names.slice().reverse()) {
     let e;
@@ -416,12 +416,12 @@ async function renderLedger() {
     const [colour, label] = BANNERS[e.verdict] || ["#94a3b8", e.verdict];
     rows.push(`<tr>
       <td class="mono">${e.name}</td>
-      <td style="color:#cbd5e1">${e.source_lang} → ${e.target_lang}</td>
+      <td style="color:var(--fg-2)">${e.source_lang} → ${e.target_lang}</td>
       <td><span style="color:${colour};font-weight:600">${label}</span></td>
       <td class="mono" style="color:${scoreColour(e.fidelity)}">${e.fidelity}</td>
       <td class="mono" style="color:${scoreColour(e.coverage)}">${e.coverage}</td>
       <td class="mono" style="color:${scoreColour(e.fluency)}">${e.fluency}</td>
-      <td class="mono" style="color:#94a3b8">${(e.defects || []).join(", ") || "none"}</td>
+      <td class="mono" style="color:var(--fg-3)">${(e.defects || []).join(", ") || "none"}</td>
     </tr>`);
   }
   body.innerHTML = rows.join("");
