@@ -269,7 +269,14 @@ $("deploy").onclick = async () => {
   $("deploy").disabled = true;
   try {
     log("▶ deploying a register … confirm in wallet");
-    const src = await (await fetch("./contracts/faithful.py?t=" + Date.now())).text();
+    /* The contract source is served as a static file beside this page, so what
+       gets deployed is the file in the repository rather than a copy of it
+       pasted somewhere. If a host will not serve it, say which file is missing
+       instead of failing later with something that reads like a chain error. */
+    const got = await fetch("./contracts/faithful.py?t=" + Date.now());
+    if (!got.ok) throw new Error("could not read contracts/faithful.py from this host (" + got.status + ")");
+    const src = await got.text();
+    if (!src.startsWith("#")) throw new Error("contracts/faithful.py came back as something other than the contract");
     const c = await client();
     const h = await c.deployContract({ code: src, args: [] });
     log("  tx " + h + " · " + link("/tx/" + h, "explorer"));
