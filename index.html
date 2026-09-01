@@ -85,9 +85,6 @@ details.newhere>div{padding:0 20px 20px}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style></head><body data-ready="0">
 
-<div id="flash" hidden style="position:sticky;top:0;z-index:60;background:#14321f;
-  box-shadow:inset 0 -1px 0 #22c55e55;color:#bbf7d0;padding:13px 20px;font-weight:500"></div>
-
 <header class="wrap" style="padding-top:34px">
   <p class="eyebrow">Faithful · a GenLayer intelligent contract</p>
   <h1 style="font-size:clamp(27px,4.2vw,42px);margin:14px 0 0;max-inline-size:20ch">
@@ -223,36 +220,7 @@ details.newhere>div{padding:0 20px 20px}
     </div>
   </section>
 
-  <section style="margin-top:34px">
-    <p class="eyebrow">Start over</p>
-    <div class="card" style="margin-top:12px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1 1 320px">
-        <p style="margin:0;color:var(--fg-2)">Forget the register this browser is pointed at and empty
-        every box, so the page begins at deploying again.</p>
-        <p class="note" style="margin:6px 0 0">Nothing on chain is touched. It asks before it does it.</p>
-      </div>
-      <button id="reset" class="btn" style="border-color:#5b3a3a;color:#fca5a5">Reset this page</button>
-    </div>
-  </section>
-
 </main>
-
-<div id="modal" hidden style="position:fixed;inset:0;z-index:80;background:rgba(6,10,20,.72);
-  display:grid;place-items:center;padding:20px;backdrop-filter:blur(3px)">
-  <div class="card cheer" style="max-inline-size:520px;width:100%">
-    <h2 style="font-size:19px;margin:0">Start over?</h2>
-    <p class="copy" style="color:var(--fg-2);margin:12px 0 0;font-size:15px">
-      This clears the register this page is pointed at, which passages you have already been given,
-      and everything in the boxes. It touches nothing on chain. Every certificate you have made stays
-      exactly where it is, and the register keeps existing whether or not this page remembers it.
-    </p>
-    <div id="modal-reg" style="margin-top:16px"></div>
-    <div style="display:flex;gap:12px;margin-top:22px;flex-wrap:wrap">
-      <button id="modal-yes" class="btn" style="background:#7f1d1d;border-color:#991b1b;color:#fee2e2">Clear it all</button>
-      <button id="modal-no" class="btn">Keep what I have</button>
-    </div>
-  </div>
-</div>
 
 <script type="module" src="./faithful-app.js"></script>
 </body></html>

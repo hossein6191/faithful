@@ -23,8 +23,8 @@ const log = (line, cls) => {
 const link = (path, text) => `<a href="${EXPLORER}${path}" target="_blank" rel="noopener">${text} ↗</a>`;
 const done = (id, yes) => $(id).setAttribute("data-done", yes ? "1" : "0");
 
-/* Whatever state the page is in, one line says what to do now. Without it a
-   reset leaves everything dim and correct and looking like a dead end. */
+/* Whatever state the page is in, one line says what to do now. Without it the
+   later steps sit dim and correct and look like a dead end. */
 function sayNext() {
   const el = $("next");
   if (!account) { el.textContent = "Start by connecting your wallet above."; return; }
@@ -426,78 +426,6 @@ async function renderLedger() {
   }
   body.innerHTML = rows.join("");
 }
-
-/* ------------------------------------------------------------------- reset */
-/* Clears only what this browser remembers. Nothing on chain moves: the register
-   keeps existing and every certificate in it stays exactly where it is, which
-   is why the dialog says so and shows the address first. An in-page dialog
-   rather than confirm(), so it can carry that. */
-function openModal() {
-  const box = $("modal-reg");
-  box.innerHTML = reg
-    ? `<p class="note" style="margin:0">The register you would be forgetting. Copy it if you want it back:</p>
-       <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-         <input class="mono" readonly value="${reg}" style="flex:1 1 260px" onclick="this.select()">
-         <a class="btn" style="text-decoration:none;display:inline-flex;align-items:center"
-            href="${EXPLORER}/address/${reg}" target="_blank" rel="noopener">explorer ↗</a>
-       </div>`
-    : `<p class="note" style="margin:0">No register is loaded, so there is nothing to lose.</p>`;
-  $("modal").hidden = false;
-  $("modal-no").focus();
-}
-function closeModal() { $("modal").hidden = true; $("reset").focus(); }
-
-let flashTimer = null;
-function flash(message) {
-  const bar = $("flash");
-  bar.textContent = message;
-  bar.hidden = false;
-  bar.classList.remove("cheer"); void bar.offsetWidth; bar.classList.add("cheer");
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { bar.hidden = true; }, 6000);
-}
-
-$("reset").onclick = openModal;
-$("modal-no").onclick = closeModal;
-$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
-addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modal").hidden) closeModal(); });
-
-$("modal-yes").onclick = () => {
-  for (const k of Object.keys(localStorage)) {
-    if (k === "faithful_register" || k.startsWith("faithful_seen_")) localStorage.removeItem(k);
-  }
-  reg = null; target = null;
-  document.body.setAttribute("data-ready", "0");
-  for (const id of ["step1", "step2", "step3"]) done(id, false);
-  $("addr").value = ""; $("regLink").textContent = "";
-  $("source").setAttribute("readonly", "");
-  $("source").value = ""; $("target").value = ""; $("cert-name").value = "";
-  $("giveSt").textContent = "";
-  $("mismatch").setAttribute("data-on", "0");
-  $("rules").textContent = "load a register to read its published rules";
-  $("result").hidden = true; $("result-empty").hidden = false;
-  $("resultLink").textContent = ""; $("certSt").textContent = "";
-  $("ledger").querySelector("tbody").innerHTML =
-    `<tr><td style="color:#94a3b8;border:0">nothing loaded yet</td></tr>`;
-  $("log").textContent = "ready.";
-  $("deploy").disabled = !account;
-  $("faucet").disabled = !account;
-  paintLangs(); chooseTarget(); counts(); sayNext();
-  closeModal();
-  log("cleared. " + (account ? "Deploy a register to start again."
-                             : "Connect a wallet, then deploy a register."), "ok");
-  /* The button lives at the foot of the page and everything it clears sits
-     above it, so without both of these a clear reads as a button that did
-     nothing. Go to the top, and say so where it cannot be missed.
-
-     Not a smooth scroll: from the foot of this page that is a long slow ride
-     to somewhere the reader did not ask to go slowly, and it does not run at
-     all in some contexts, which is how this was found. */
-  scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
-  flash("Cleared. " + (account ? "Deploy a register below to start again."
-                               : "Connect a wallet below, then deploy a register."));
-};
 
 paintLangs();
 counts();
