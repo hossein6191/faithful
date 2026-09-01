@@ -3,6 +3,8 @@ import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
 import { PASSAGES, SCRIPTS, scriptOf } from "./texts.js";
 import { LANGUAGES, search } from "./languages.js";
 
+const byLabel = (l) => LANGUAGES.find((x) => x.label === l) || null;
+
 const $ = (id) => document.getElementById(id);
 const RPC = "https://studio.genlayer.com/api";
 const EXPLORER = "https://explorer-studio.genlayer.com";
@@ -49,7 +51,12 @@ const COMMUNITIES = [
    the leader called the Persian "fluent Urdu" and the validators would not.
    A label the reader can set independently of the text will eventually
    disagree with it. Here it cannot. */
-const SOURCE_LANG = "English";
+/* Guided mode keeps the source pinned to English and hands out a passage, which
+   is the arrangement that made a label and a text impossible to separate. Any
+   pair opens the source up, and pays for it by making the reader responsible
+   for both boxes. Both modes still choose a language rather than type one. */
+let mode = "guided";
+let source = "English";
 let target = null;
 
 /* No repeats until the set is exhausted: a shuffled order per community,
@@ -84,7 +91,7 @@ function paintLangs() {
 }
 function chooseTarget() {
   $("tgt-lang").textContent = target || "not chosen yet";
-  $("src-lang").textContent = SOURCE_LANG;
+  $("src-lang").textContent = source;
   done("step2", !!target && !!$("source").value.trim());
   suggestName();
   checkMismatch();
@@ -93,72 +100,78 @@ function chooseTarget() {
    up naming something the text was not. Now typing only searches: the language
    is set by choosing one, from this list or from the globe, and never by what
    is half-typed in the box. */
-const langBox = $("tgt-other"), langList = $("lang-list");
-let langCursor = -1, langShown = [];
-
-function closeList() {
-  langList.hidden = true;
-  langBox.setAttribute("aria-expanded", "false");
-  langCursor = -1;
+function combobox(boxId, listId, onPick) {
+  const box = $(boxId), list = $(listId);
+  let cursor = -1, shown = [];
+  const close = () => { list.hidden = true; box.setAttribute("aria-expanded", "false"); cursor = -1; };
+  const open = (query) => {
+    shown = search(query).slice(0, 60);
+    list.innerHTML = shown.length
+      ? shown.map((l, i) => `
+          <button type="button" class="opt" role="option" data-i="${i}" aria-selected="false">
+            <span class="endo">${l.endonym}</span>
+            <span>${l.label}</span>
+            ${l.discord ? '<span class="tag">discord</span>' : ""}
+            <span class="where">${l.country}</span>
+          </button>`).join("")
+      : `<p class="none">No language matches “${query}”. The contract takes any name, so a language
+         that is not listed still works if you paste both texts yourself.</p>`;
+    list.hidden = false;
+    box.setAttribute("aria-expanded", "true");
+    cursor = -1;
+  };
+  const mark = () => {
+    for (const el of list.querySelectorAll(".opt")) el.setAttribute("aria-selected", "false");
+    const el = list.querySelector(`.opt[data-i="${cursor}"]`);
+    if (el) { el.setAttribute("aria-selected", "true"); el.scrollIntoView({ block: "nearest" }); }
+  };
+  box.addEventListener("input", () => open(box.value));
+  box.addEventListener("focus", () => open(box.value));
+  box.addEventListener("keydown", (e) => {
+    if (list.hidden && (e.key === "ArrowDown" || e.key === "Enter")) { open(box.value); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); cursor = Math.min(shown.length - 1, cursor + 1); mark(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cursor = Math.max(0, cursor - 1); mark(); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const p = shown[cursor >= 0 ? cursor : 0];
+      if (p) { close(); onPick(p.label); }
+    } else if (e.key === "Escape") close();
+  });
+  list.addEventListener("mousedown", (e) => {
+    const opt = e.target.closest(".opt");
+    if (!opt) return;
+    e.preventDefault();
+    const p = shown[Number(opt.dataset.i)];
+    if (p) { close(); onPick(p.label); }
+  });
+  addEventListener("click", (e) => {
+    if (!list.hidden && !box.contains(e.target) && !list.contains(e.target)) close();
+  });
+  return { close, box };
 }
 
-function openList(query) {
-  langShown = search(query).slice(0, 60);
-  if (!langShown.length) {
-    langList.innerHTML = `<p class="none">No language matches “${query}”. The contract accepts any
-      name, so you can still translate into one that is not listed by pasting your own source.</p>`;
-  } else {
-    langList.innerHTML = langShown.map((l, i) => `
-      <button type="button" class="opt" role="option" data-i="${i}" aria-selected="false">
-        <span class="endo">${l.endonym}</span>
-        <span>${l.label}</span>
-        ${l.discord ? '<span class="tag">discord</span>' : ""}
-        <span class="where">${l.country}</span>
-      </button>`).join("");
-  }
-  langList.hidden = false;
-  langBox.setAttribute("aria-expanded", "true");
-  langCursor = -1;
-}
-
-function markCursor() {
-  for (const el of langList.querySelectorAll(".opt")) el.setAttribute("aria-selected", "false");
-  const el = langList.querySelector(`.opt[data-i="${langCursor}"]`);
-  if (el) { el.setAttribute("aria-selected", "true"); el.scrollIntoView({ block: "nearest" }); }
-}
+const targetCombo = combobox("tgt-other", "lang-list", (label) => chooseLanguage(label));
+const sourceCombo = combobox("src-other", "src-list", (label) => chooseSource(label));
 
 /* One way in, whether the choice came from a chip, this list, or the globe. */
 export function chooseLanguage(label) {
   target = label;
-  langBox.value = "";
-  closeList();
+  $("tgt-other").value = "";
   paintLangs();
   chooseTarget();
-  giveOne();
+  /* A passage only comes with guided mode. In a free pair the source is the
+     reader's, and handing them one would overwrite what they pasted. */
+  if (mode === "guided") giveOne();
 }
 
-langBox.addEventListener("input", () => openList(langBox.value));
-langBox.addEventListener("focus", () => openList(langBox.value));
-langBox.addEventListener("keydown", (e) => {
-  if (langList.hidden && (e.key === "ArrowDown" || e.key === "Enter")) { openList(langBox.value); return; }
-  if (e.key === "ArrowDown") { e.preventDefault(); langCursor = Math.min(langShown.length - 1, langCursor + 1); markCursor(); }
-  else if (e.key === "ArrowUp") { e.preventDefault(); langCursor = Math.max(0, langCursor - 1); markCursor(); }
-  else if (e.key === "Enter") {
-    e.preventDefault();
-    const pick = langShown[langCursor >= 0 ? langCursor : 0];
-    if (pick) chooseLanguage(pick.label);
-  } else if (e.key === "Escape") closeList();
-});
-langList.addEventListener("mousedown", (e) => {
-  const opt = e.target.closest(".opt");
-  if (!opt) return;
-  e.preventDefault();
-  const pick = langShown[Number(opt.dataset.i)];
-  if (pick) chooseLanguage(pick.label);
-});
-addEventListener("click", (e) => {
-  if (!langList.hidden && !langBox.contains(e.target) && !langList.contains(e.target)) closeList();
-});
+function chooseSource(label) {
+  source = label;
+  $("src-other").value = label;
+  chooseTarget();
+  sayChallenge();
+}
+
+
 
 function giveOne() {
   if (!target) { $("giveSt").textContent = "pick a community first"; return; }
@@ -425,7 +438,7 @@ $("certify").onclick = async () => {
   const tgt = $("target").value.trim();
   const targetLang = target;
 
-  if (SOURCE_LANG === targetLang) { log("the source and the target are the same language", "warn"); return; }
+  if (source === targetLang) { log("the source and the target are the same language", "warn"); return; }
   for (const [label, text] of [["source", src], ["translation", tgt]]) {
     if (text.length < 20) { log(`the ${label} is too short to judge`, "warn"); return; }
     if (text.length > 4000) { log(`the ${label} is longer than 4000 characters. Split it into parts.`, "warn"); return; }
@@ -434,10 +447,10 @@ $("certify").onclick = async () => {
   $("certify").disabled = true;
   $("certSt").textContent = "waiting on consensus…";
   try {
-    log(`▶ certifying "${name}" · ${SOURCE_LANG} → ${targetLang} … confirm in wallet`);
+    log(`▶ certifying "${name}" · ${source} → ${targetLang} … confirm in wallet`);
     const c = await client();
     const tx = await c.writeContract({ address: reg, functionName: "certify",
-      args: [name, SOURCE_LANG, targetLang, src, tgt] });
+      args: [name, source, targetLang, src, tgt] });
     log("  tx " + tx + " · " + link("/tx/" + tx, "explorer"));
     $("certSt").innerHTML = link("/tx/" + tx, "follow it on the explorer");
     const res = await wait(tx, "certifying");
@@ -487,6 +500,82 @@ async function renderLedger() {
   }
   body.innerHTML = rows.join("");
 }
+
+/* -------------------------------------------------------------------- modes */
+function setMode(next) {
+  mode = next;
+  $("mode-guided").setAttribute("aria-selected", String(mode === "guided"));
+  $("mode-free").setAttribute("aria-selected", String(mode === "free"));
+  $("src-pick").hidden = mode !== "free";
+  $("give").hidden = mode !== "guided";
+  $("giveSt").hidden = mode !== "guided";
+  if (mode === "guided") {
+    source = "English";
+    $("source").setAttribute("readonly", "");
+    $("source").placeholder = "press “Give me a passage” above";
+  } else {
+    $("source").removeAttribute("readonly");
+    $("source").placeholder = "paste the text you are translating from";
+    $("src-other").value = source;
+  }
+  chooseTarget();
+  sayChallenge();
+  counts();
+}
+
+/* Translating into English is the one direction where the person doing it is
+   usually the learner rather than the expert, so it is worth naming. */
+function sayChallenge() {
+  const el = $("challenge");
+  if (mode !== "free") { el.hidden = true; return; }
+  if (target === "English") {
+    el.hidden = false;
+    el.innerHTML = `<b style="color:var(--g1)">Challenge your English.</b> Translating into a language
+      you are still learning is the hardest thing this page can be asked to check, and the scores will
+      tell you where it went: fidelity if a fact moved, coverage if something was dropped, fluency if
+      it reads like a textbook rather than a person.`;
+  } else if (source === target && source) {
+    el.hidden = false;
+    el.innerHTML = `<span style="color:var(--warnbox-fg)">Both ends are ${source}. The contract refuses
+      that, because a translation between one language and itself has nothing to check.</span>`;
+  } else {
+    el.hidden = true;
+  }
+}
+
+$("mode-guided").onclick = () => setMode("guided");
+$("mode-free").onclick = () => setMode("free");
+
+/* ---------------------------------------------------------- the translator */
+/* Offered, and argued against in the same breath. It exists so somebody can see
+   what the contract does in a language they do not read; the note beside it says
+   why doing it by hand is the more interesting test. */
+$("mt").onclick = async () => {
+  const src = $("source").value.trim();
+  const from = byLabel(source), to = byLabel(target);
+  if (!src) { $("mtSt").textContent = "There is nothing in the source box yet."; return; }
+  if (!from || !to) { $("mtSt").textContent = "Pick both languages first."; return; }
+  if (from.code === to.code) { $("mtSt").textContent = `${source} and ${target} are the same language to a translator.`; return; }
+  if (src.length > 480) { $("mtSt").textContent = "The free translator takes about 480 characters. Translate this one by hand, or shorten it."; return; }
+
+  $("mt").disabled = true;
+  $("mtSt").textContent = "asking the translator…";
+  try {
+    const url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(src) +
+                "&langpair=" + from.code + "|" + to.code;
+    const r = await fetch(url);
+    const j = await r.json();
+    const out = j?.responseData?.translatedText;
+    if (!out || j.responseStatus >= 400) throw new Error(j?.responseDetails || "no translation came back");
+    $("target").value = out;
+    $("target").dispatchEvent(new Event("input"));
+    $("mtSt").innerHTML = `Machine translation, ${source} to ${target}. <b>Read it before you sign
+      it</b>: you are certifying this text as yours, and the certificate does not record who wrote it.`;
+  } catch (e) {
+    $("mtSt").textContent = "The translator did not answer (" + (e.message || e) + "). Translating by hand always works.";
+  }
+  $("mt").disabled = false;
+};
 
 /* ------------------------------------------------------------------- reset */
 /* The confirmation lives on the button itself rather than in a dialog. A modal
@@ -542,6 +631,7 @@ $("reset").onclick = () => {
 };
 
 paintLangs();
+setMode("guided");
 counts();
 sayNext();
 const saved = localStorage.getItem("faithful_register");

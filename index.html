@@ -82,6 +82,18 @@ th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;t
 #lang-list .opt .where{color:var(--fg-3);font-size:12.5px;margin-inline-start:auto;white-space:nowrap}
 #lang-list .opt .tag{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--g1);border:1px solid var(--border);border-radius:999px;padding:2px 7px}
 #lang-list .none{padding:12px;color:var(--fg-3);font-size:14px}
+.modes{display:flex;gap:10px;flex-wrap:wrap}
+.mode{flex:1 1 220px;text-align:start;border:1px solid var(--border-soft);border-radius:14px;padding:12px 15px;background:var(--muted);color:var(--fg-2);font-weight:600;font-size:14.5px;transition:border-color .25s,color .25s,box-shadow .25s}
+.mode span{display:block;font-weight:400;font-size:12.5px;color:var(--fg-3);margin-top:3px}
+.mode[aria-selected="true"]{color:var(--fg);border-color:transparent;background:linear-gradient(var(--btn-bg),var(--btn-bg)) padding-box,linear-gradient(100deg,var(--g1),var(--g2),var(--g3)) border-box;box-shadow:0 4px 20px rgba(155,106,246,.24)}
+#src-list{position:absolute;z-index:40;left:0;right:0;width:auto;min-width:280px;top:calc(100% + 6px);max-height:290px;overflow-y:auto;background:var(--btn-bg);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}
+#src-list[hidden]{display:none}
+#src-list .opt{display:flex;align-items:baseline;gap:10px;width:100%;text-align:start;background:transparent;border:0;border-radius:10px;padding:9px 11px;color:var(--fg-2);font-size:14.5px;line-height:1.35}
+#src-list .opt:hover,#src-list .opt[aria-selected="true"]{background:var(--muted);color:var(--fg)}
+#src-list .opt .endo{color:var(--fg);font-weight:500}
+#src-list .opt .where{color:var(--fg-3);font-size:12.5px;margin-inline-start:auto;white-space:nowrap}
+#src-list .opt .tag{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--g1);border:1px solid var(--border);border-radius:999px;padding:2px 7px}
+#src-list .none{padding:12px;color:var(--fg-3);font-size:14px}
 .scroll-x{overflow-x:auto}
 .gate{opacity:.42;pointer-events:none;transition:opacity .4s ease}
 body[data-ready="1"] .gate{opacity:1;pointer-events:auto}
@@ -123,7 +135,7 @@ details.newhere>div{padding:0 22px 22px}
     <img src="./assets/faithful-mark.svg" alt="Faithful" width="26" height="26" style="flex:0 0 auto;display:block">
     <span style="font:600 17px/1 Switzer,sans-serif;letter-spacing:-.01em;flex:0 0 auto">Faithful</span>
     <span aria-hidden="true" style="inline-size:1px;block-size:22px;background:var(--border-soft);flex:0 0 auto"></span>
-    <svg width="82" height="20" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-3);flex:0 0 auto" aria-label="Built on GenLayer">
+    <svg width="82" height="20" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="Built on GenLayer">
       <path d="M296.72,79.83v-6.28h7.17l2.69-6.54-13.82-31.49h8.28l9.49,22.42h.26l9.18-22.42h7.96l-13.55,31.65-5.31,12.66h-12.36Z"></path>
       <path d="M106.14,46.33c0-13.83,8.72-22.96,22.42-22.96,11.51,0,19.01,6.2,19.76,15.19h-7.36c-1.29-5.38-5.31-8.45-9.2-8.45h-6.2c-6.34,0-11.99,7.15-11.99,16.08s5.79,15.94,12.54,15.94h4.57c5.04,0,8.99-3,10.63-6.2v-5.66h-10.97v-6.06h17.78v13.9c-2.73,5.31-8.86,10.77-19.62,10.77-13.56,0-22.35-8.31-22.35-22.55Z"></path>
       <path d="M153.44,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM179.33,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
@@ -178,7 +190,7 @@ details.newhere>div{padding:0 22px 22px}
       </div>
     </div>
     <div id="diveFull" style="position:absolute;inset:0;z-index:20;opacity:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;pointer-events:none">
-      <svg width="46" height="44" viewBox="0 0 97.76 91.93" fill="#fff" aria-hidden="true"><polygon points="44.26 32.35 27.72 67.12 43.29 74.9 0 91.93 44.26 0 44.26 32.35"></polygon><polygon points="53.5 32.35 70.04 67.12 54.47 74.9 97.76 91.93 53.5 0 53.5 32.35"></polygon><polygon points="48.64 43.78 58.33 62.94 48.64 67.69 39.47 62.92 48.64 43.78"></polygon></svg>
+      <img src="./assets/faithful-mark.svg" alt="" width="52" height="52" style="display:block;margin:0 auto">
       <div style="font-size:clamp(56px,10vw,140px);font-weight:700;letter-spacing:-.04em;line-height:1;color:#fff;text-shadow:0 12px 70px rgba(0,0,0,.45)">Faithful</div>
       <p style="margin:0;color:rgba(255,255,255,.85);font-size:clamp(15px,1.6vw,19px);max-inline-size:46ch;text-align:center;padding:0 22px">Five validators read the pair independently. The thresholds live in the contract, where every validator applies the same ones.</p>
       <div style="display:flex;flex-direction:column;gap:18px;width:100%;margin-top:10px">
@@ -250,7 +262,24 @@ details.newhere>div{padding:0 22px 22px}
     <div class="card">
       <div class="s2grid">
         <div style="min-width:0">
-          <label>Translate into</label>
+          <div class="modes" role="tablist" aria-label="How you want to work">
+            <button id="mode-guided" role="tab" aria-selected="true" class="mode">Guided
+              <span>an English passage, into your language</span></button>
+            <button id="mode-free" role="tab" aria-selected="false" class="mode">Any pair
+              <span>your own two texts, any two languages</span></button>
+          </div>
+
+          <div id="src-pick" hidden style="margin-top:20px">
+            <label>Translate from</label>
+            <div style="position:relative;max-width:340px">
+              <input id="src-other" role="combobox" aria-expanded="false" aria-autocomplete="list"
+                aria-controls="src-list" autocomplete="off" placeholder="search every language, or a country">
+              <div id="src-list" role="listbox" hidden></div>
+            </div>
+            <p id="challenge" class="note" hidden></p>
+          </div>
+
+          <label style="margin-top:20px">Translate into</label>
           <div class="lang" id="tgt-langs"></div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center">
             <div style="position:relative;flex:1 1 250px;min-width:0">
@@ -285,12 +314,23 @@ details.newhere>div{padding:0 22px 22px}
           <textarea id="source" rows="8" dir="auto" spellcheck="false" readonly="readonly" placeholder="press “Give me a passage” above"></textarea>
         </div>
         <div>
-          <label for="target">Your translation · <span id="tgt-lang">not chosen yet</span> <span id="tgt-count" style="color:var(--fg-3)"></span></label>
+          <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+            <label for="target" style="margin-bottom:8px">Your translation · <span id="tgt-lang">not chosen yet</span> <span id="tgt-count" style="color:var(--fg-3)"></span></label>
+            <button id="mt" class="btn" style="margin-inline-start:auto;margin-bottom:8px;padding:6px 13px;font-size:13px">Translate it for me</button>
+          </div>
           <textarea id="target" rows="8" dir="auto" spellcheck="false" placeholder="write your translation here"></textarea>
         </div>
       </div>
       <p class="note">Both boxes carry <code>dir="auto"</code>, so the browser takes writing direction from the text itself rather than from a list of languages somebody remembered to update.</p>
-      <div id="mismatch" class="warnbox"></div>
+      <p id="mtSt" class="note" style="margin-top:10px"></p>
+        <div id="handnote" class="warnbox" data-on="1" style="background:var(--muted);box-shadow:inset 0 0 0 1px var(--border-soft);color:var(--fg-2)">
+          <b>Translate it yourself if you can.</b> The machine is here so you can see what the contract
+          does without knowing the language, and a good machine translation of a plain sentence scores
+          well because it deserves to. Your own is the more interesting test: it is where a number
+          slips, a clause goes missing, or the phrasing turns stiff, and that is what the three scores
+          are actually measuring.
+        </div>
+        <div id="mismatch" class="warnbox"></div>
       <div style="margin-top:20px">
         <label for="cert-name">Certificate name · your own label, and it can only be used once</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -338,10 +378,32 @@ details.newhere>div{padding:0 22px 22px}
 </main>
 
 <footer style="position:relative;z-index:1;border-top:1px solid var(--border-soft)">
-  <div class="wrap" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-top:30px;padding-bottom:42px">
-    <svg width="21" height="20" viewBox="0 0 97.76 91.93" fill="currentColor" style="color:var(--fg)" aria-hidden="true"><polygon points="44.26 32.35 27.72 67.12 43.29 74.9 0 91.93 44.26 0 44.26 32.35"></polygon><polygon points="53.5 32.35 70.04 67.12 54.47 74.9 97.76 91.93 53.5 0 53.5 32.35"></polygon><polygon points="48.64 43.78 58.33 62.94 48.64 67.69 39.47 62.92 48.64 43.78"></polygon></svg>
-    <span class="note" style="margin:0">Faithful runs as an intelligent contract on GenLayer Studio.</span>
-    <span class="note" style="margin:0;margin-inline-start:auto"><a href="https://explorer-studio.genlayer.com" target="_blank" rel="noopener">explorer ↗</a></span>
+  <div class="wrap" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-top:30px;padding-bottom:42px">
+    <img src="./assets/faithful-mark.svg" alt="" width="22" height="22" style="display:block;flex:0 0 auto">
+    <span style="font-weight:600">Faithful</span>
+    <span class="eyebrow" style="padding-inline-start:16px;border-inline-start:1px solid var(--border-soft)">
+      Built on
+    </span>
+    <svg width="74" height="18" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="GenLayer">
+      <path d="M296.72,79.83v-6.28h7.17l2.69-6.54-13.82-31.49h8.28l9.49,22.42h.26l9.18-22.42h7.96l-13.55,31.65-5.31,12.66h-12.36Z"></path>
+      <path d="M106.14,46.33c0-13.83,8.72-22.96,22.42-22.96,11.51,0,19.01,6.2,19.76,15.19h-7.36c-1.29-5.38-5.31-8.45-9.2-8.45h-6.2c-6.34,0-11.99,7.15-11.99,16.08s5.79,15.94,12.54,15.94h4.57c5.04,0,8.99-3,10.63-6.2v-5.66h-10.97v-6.06h17.78v13.9c-2.73,5.31-8.86,10.77-19.62,10.77-13.56,0-22.35-8.31-22.35-22.55Z"></path>
+      <path d="M153.44,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM179.33,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
+      <path d="M191.68,34.61h17.85c8.04,0,12.74,4.57,12.74,12.95v20.37h-7.15v-19.15c0-4.7-2.38-7.49-5.79-7.49h-10.49v26.64h-7.15v-33.32Z"></path>
+      <path d="M228.29,24.32h7.36v36.86h16.26v6.75h-23.62V24.32Z"></path>
+      <path d="M253.95,51.71c0-10.08,6.54-17.1,15.88-17.1,4.84,0,8.79,2.25,10.9,4.84v-3.88h7.02v32.36h-7.02v-4.57c-2.45,3.13-6,5.52-11.11,5.52-9.4,0-15.67-7.02-15.67-17.17ZM269.15,62.48h4.29c4.02,0,7.09-3.41,7.09-7.84v-5.66c0-4.29-2.86-7.97-7.09-7.97h-4.29c-4.43,0-8.04,4.77-8.04,10.7s3.61,10.77,8.04,10.77Z"></path>
+      <path d="M327.94,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM353.83,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
+      <path d="M366.18,35.57h19.15v6.88h-11.99v25.48h-7.15v-32.36Z"></path>
+      <polygon points="44.26 32.35 27.72 67.12 43.29 74.9 0 91.93 44.26 0 44.26 32.35"></polygon>
+      <polygon points="53.5 32.35 70.04 67.12 54.47 74.9 97.76 91.93 53.5 0 53.5 32.35"></polygon>
+      <polygon points="48.64 43.78 58.33 62.94 48.64 67.69 39.47 62.92 48.64 43.78"></polygon>
+    </svg>
+    <span style="flex:1 1 auto"></span>
+    <a href="https://x.com/Hellishnum1" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg-3)">
+      <img src="./assets/hellish-avatar.png" alt="" width="26" height="26"
+        style="border-radius:50%;display:block;flex:0 0 auto">
+      <span class="mono" style="font-size:12.5px">made by Hellish · @Hellishnum1</span>
+    </a>
   </div>
 </footer>
 <script type="module" src="./faithful-app.js"></script>
