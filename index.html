@@ -31,6 +31,13 @@ button:disabled{cursor:not-allowed;opacity:.38}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);margin:0}
 .gtext{background:linear-gradient(100deg,var(--g1) 0%,var(--g2) 30%,var(--g3) 55%,var(--g2) 75%,var(--g1) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gslide 8s linear infinite}
 @keyframes gslide{to{background-position:250% 0}}
+/* The GenLayer mark is one artwork: a triangle that fills the full 91.93 of the
+   viewBox, and a wordmark whose letters sit on a baseline at y=67.93 inside it.
+   Centring that box next to the word "Faithful" therefore centres the triangle
+   and leaves the two wordmarks on different baselines — measured at 1.7px, with
+   GenLayer's sitting high, in both the header and the footer. This puts the two
+   baselines on one line, which is what reads as level. */
+.gl-lockup{transform:translateY(1.7px)}
 .wchoice{display:flex;align-items:center;gap:10px;border-radius:999px;border:1px solid var(--border);background:var(--btn-bg);color:var(--fg);padding:9px 17px 9px 10px;font-weight:500;font-size:14.5px;cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease}
 .wchoice:hover{border-color:var(--ring);box-shadow:0 0 0 3px rgba(155,106,246,.16)}
 .wchoice img{width:22px;height:22px;border-radius:6px;flex:0 0 auto}
@@ -140,7 +147,7 @@ details.newhere>div{padding:0 22px 22px}
     <img src="./assets/faithful-mark.svg" alt="Faithful" width="26" height="26" style="flex:0 0 auto;display:block">
     <span style="font:600 17px/1 Switzer,sans-serif;letter-spacing:-.01em;flex:0 0 auto">Faithful</span>
     <span aria-hidden="true" style="inline-size:1px;block-size:22px;background:var(--border-soft);flex:0 0 auto"></span>
-    <svg width="82" height="20" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="Built on GenLayer">
+    <svg class="gl-lockup" width="82" height="20" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="Built on GenLayer">
       <path d="M296.72,79.83v-6.28h7.17l2.69-6.54-13.82-31.49h8.28l9.49,22.42h.26l9.18-22.42h7.96l-13.55,31.65-5.31,12.66h-12.36Z"></path>
       <path d="M106.14,46.33c0-13.83,8.72-22.96,22.42-22.96,11.51,0,19.01,6.2,19.76,15.19h-7.36c-1.29-5.38-5.31-8.45-9.2-8.45h-6.2c-6.34,0-11.99,7.15-11.99,16.08s5.79,15.94,12.54,15.94h4.57c5.04,0,8.99-3,10.63-6.2v-5.66h-10.97v-6.06h17.78v13.9c-2.73,5.31-8.86,10.77-19.62,10.77-13.56,0-22.35-8.31-22.35-22.55Z"></path>
       <path d="M153.44,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM179.33,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
@@ -408,7 +415,7 @@ details.newhere>div{padding:0 22px 22px}
     <span class="eyebrow" style="padding-inline-start:16px;border-inline-start:1px solid var(--border-soft)">
       Built on
     </span>
-    <svg width="74" height="18" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="GenLayer">
+    <svg class="gl-lockup" width="74" height="18" viewBox="0 0 385.32 91.93" fill="currentColor" style="color:var(--fg-2);flex:0 0 auto" aria-label="GenLayer">
       <path d="M296.72,79.83v-6.28h7.17l2.69-6.54-13.82-31.49h8.28l9.49,22.42h.26l9.18-22.42h7.96l-13.55,31.65-5.31,12.66h-12.36Z"></path>
       <path d="M106.14,46.33c0-13.83,8.72-22.96,22.42-22.96,11.51,0,19.01,6.2,19.76,15.19h-7.36c-1.29-5.38-5.31-8.45-9.2-8.45h-6.2c-6.34,0-11.99,7.15-11.99,16.08s5.79,15.94,12.54,15.94h4.57c5.04,0,8.99-3,10.63-6.2v-5.66h-10.97v-6.06h17.78v13.9c-2.73,5.31-8.86,10.77-19.62,10.77-13.56,0-22.35-8.31-22.35-22.55Z"></path>
       <path d="M153.44,51.78c0-10.42,6.95-17.17,17.1-17.17,9.61,0,16.01,5.86,16.01,17.51v1.64h-25.96c.68,4.97,3.82,8.86,8.52,8.86h2.93c3.68,0,6.06-2.25,6.81-5.11h7.09c-.89,6.54-6.27,11.38-15.6,11.38-10.77,0-16.9-7.22-16.9-17.1ZM179.33,48.31c-.34-4.57-3.54-7.43-7.02-7.43h-3.75c-3.75,0-6.75,2.93-7.7,7.43h18.46Z"></path>
