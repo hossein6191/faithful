@@ -130,7 +130,10 @@ names()                       what this register holds
 ```
 
 `rules()` publishes the thresholds and the comparison, so nobody has to read the
-source to know what a certificate means.
+source to know what a certificate means. The site does not print it — a wall of
+raw JSON is not something anybody reads on the way past — but it does call it:
+an address that cannot answer `rules()` is refused as a register with a free
+read, rather than costing a signature to find out.
 
 ## The site
 

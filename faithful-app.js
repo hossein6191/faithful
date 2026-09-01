@@ -494,13 +494,16 @@ async function wait(tx, label) {
 
 /* ------------------------------------------------------------- the register */
 async function useRegister(address) {
-  let rules;
-  try { rules = JSON.parse(String(await reader().readContract({ address, functionName: "rules", args: [] }))); }
+  /* A free read, before anything is signed. What it returns is not needed here
+     — that it answers at all is the check: an address that cannot answer
+     rules() is not a Faithful register, and finding that out should not cost a
+     signature. Anybody who wants the thresholds themselves reads rules() on the
+     explorer, or the table in the README. */
+  try { await reader().readContract({ address, functionName: "rules", args: [] }); }
   catch (e) { log("  ✗ that address did not answer rules(), so it is not a Faithful register", "bad"); return false; }
   reg = address;
   localStorage.setItem("faithful_register", address);
   $("addr").value = address;
-  $("rules").textContent = JSON.stringify(rules, null, 2);
   $("regLink").innerHTML = "This register on the explorer: " + link("/address/" + address, address);
   document.body.setAttribute("data-ready", "1");
   done("step1", true);
@@ -858,7 +861,6 @@ $("reset").onclick = () => {
   $("source").value = ""; $("target").value = ""; $("cert-name").value = "";
   $("giveSt").textContent = ""; $("tgt-other").value = "";
   $("mismatch").setAttribute("data-on", "0");
-  $("rules").textContent = "load a register to read its published rules";
   $("result").hidden = true; $("result-empty").hidden = false;
   $("resultLink").textContent = ""; $("certSt").textContent = "";
   $("ledger").querySelector("tbody").innerHTML =
