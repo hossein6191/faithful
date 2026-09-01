@@ -94,6 +94,7 @@ th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;t
 #src-list .opt .where{color:var(--fg-3);font-size:12.5px;margin-inline-start:auto;white-space:nowrap}
 #src-list .opt .tag{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--g1);border:1px solid var(--border);border-radius:999px;padding:2px 7px}
 #src-list .none{padding:12px;color:var(--fg-3);font-size:14px}
+body[data-mode="free"] .guided-only{display:none}
 .scroll-x{overflow-x:auto}
 .gate{opacity:.42;pointer-events:none;transition:opacity .4s ease}
 body[data-ready="1"] .gate{opacity:1;pointer-events:auto}
@@ -291,7 +292,7 @@ details.newhere>div{padding:0 22px 22px}
             <button id="give" class="btn btn-primary">Give me a passage</button>
             <span id="giveSt" class="note" style="margin:0"></span>
           </div>
-          <p class="note">Ten passages for each community, about its own history, and the button does not repeat one until you have seen them all. They are short on purpose: a passage you can translate in two minutes gets translated.</p>
+          <p class="note guided-only">Ten passages for each community, about its own history, and the button does not repeat one until you have seen them all. A language without its own set still gets one, from the whole collection. They are short on purpose: a passage you can translate in two minutes gets translated.</p>
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
           <div style="position:relative;width:100%;aspect-ratio:1/1;max-width:420px;margin:0 auto">

@@ -62,9 +62,27 @@ let target = null;
 /* No repeats until the set is exhausted: a shuffled order per community,
    remembered across reloads. */
 const seenKey = (lang) => "faithful_seen_" + lang;
+/* Every passage is English, so a language with no set of its own is not a
+   reason to hand somebody an empty box. It gets one from the whole collection
+   instead, and is told where it came from. Sixteen communities have passages
+   about their own history; the other sixty-one get any of the 160. */
+const GENERAL = Object.entries(PASSAGES).flatMap(([about, list]) =>
+  list.map((text) => ({ text, about })));
+
 function nextPassage(lang) {
-  const pool = PASSAGES[lang];
-  if (!pool) return null;
+  const own = PASSAGES[lang];
+  if (!own) {
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(seenKey("_general")) || "[]"); } catch (e) {}
+    if (seen.length >= GENERAL.length) seen = [];
+    const left = GENERAL.map((_, i) => i).filter((i) => !seen.includes(i));
+    const pick = left[Math.floor(Math.random() * left.length)];
+    seen.push(pick);
+    try { localStorage.setItem(seenKey("_general"), JSON.stringify(seen)); } catch (e) {}
+    return { text: GENERAL[pick].text, from: GENERAL[pick].about,
+             index: seen.length, of: GENERAL.length, left: GENERAL.length - seen.length };
+  }
+  const pool = own;
   let seen = [];
   try { seen = JSON.parse(localStorage.getItem(seenKey(lang)) || "[]"); } catch (e) {}
   if (seen.length >= pool.length) seen = [];
@@ -125,7 +143,17 @@ function combobox(boxId, listId, onPick) {
     const el = list.querySelector(`.opt[data-i="${cursor}"]`);
     if (el) { el.setAttribute("aria-selected", "true"); el.scrollIntoView({ block: "nearest" }); }
   };
-  box.addEventListener("input", () => open(box.value));
+  box.addEventListener("input", () => {
+    open(box.value);
+    /* Turn the globe to the best match while it is still being typed, so the
+       search box and the map are looking at the same place. It holds there as
+       long as there is something in the box, and drifts again when it empties. */
+    if (globe) {
+      const q = box.value.trim();
+      if (!q) { globe.release(); }
+      else if (shown.length) { globe.flyTo(shown[0].label); globe.lock(); }
+    }
+  });
   box.addEventListener("focus", () => open(box.value));
   box.addEventListener("keydown", (e) => {
     if (list.hidden && (e.key === "ArrowDown" || e.key === "Enter")) { open(box.value); return; }
@@ -150,15 +178,34 @@ function combobox(boxId, listId, onPick) {
   return { close, box };
 }
 
+/* Handed over by the effects module once the globe has drawn. Everything here
+   works without it, because a globe that fails to load is a missing picture
+   rather than a broken page. */
+let globe = null;
+export function attachGlobe(g) {
+  globe = g;
+  if (target) { globe.select(target); globe.flyTo(target); }
+}
+
 const targetCombo = combobox("tgt-other", "lang-list", (label) => chooseLanguage(label));
 const sourceCombo = combobox("src-other", "src-list", (label) => chooseSource(label));
 
 /* One way in, whether the choice came from a chip, this list, or the globe. */
 export function chooseLanguage(label) {
   target = label;
-  $("tgt-other").value = "";
+  /* The name stays in the box after you pick it, rather than the box emptying
+     and leaving you unsure what you chose. */
+  $("tgt-other").value = label;
   paintLangs();
   chooseTarget();
+  if (globe) {
+    globe.select(label);
+    if (!globe.flyTo(label)) {
+      $("giveSt").innerHTML = `<span style="color:var(--warnbox-fg)">${label} has no place on the
+        globe, so nothing moved. It still works everywhere else.</span>`;
+    }
+    globe.lock();
+  }
   /* A passage only comes with guided mode. In a free pair the source is the
      reader's, and handing them one would overwrite what they pasted. */
   if (mode === "guided") giveOne();
@@ -167,6 +214,7 @@ export function chooseLanguage(label) {
 function chooseSource(label) {
   source = label;
   $("src-other").value = label;
+  if (globe) { globe.flyTo(label); globe.lock(); }
   chooseTarget();
   sayChallenge();
 }
@@ -174,19 +222,15 @@ function chooseSource(label) {
 
 
 function giveOne() {
-  if (!target) { $("giveSt").textContent = "pick a community first"; return; }
+  if (!target) { $("giveSt").textContent = "pick a language first"; return; }
   const got = nextPassage(target);
-  if (!got) {
-    $("giveSt").innerHTML = `<span style="color:#f59e0b">no passages written for “${target}” yet, so paste your own source below</span>`;
-    $("source").removeAttribute("readonly");
-    $("source").value = "";
-    $("source").placeholder = "paste an English source text";
-    return;
-  }
   $("source").setAttribute("readonly", "");
   $("source").value = got.text;
   $("target").value = "";
-  $("giveSt").textContent = `passage ${got.index} of ${got.of} · ${got.left} you have not seen yet`;
+  $("giveSt").innerHTML = got.from
+    ? `passage ${got.index} of ${got.of} · <span style="color:var(--fg-3)">${target} has no passages of
+       its own yet, so this one is from the ${got.from} set</span>`
+    : `passage ${got.index} of ${got.of} · ${got.left} you have not seen yet`;
   counts(); chooseTarget();
   $("target").focus();
 }
@@ -195,8 +239,8 @@ $("give").onclick = giveOne;
 const counts = () => {
   for (const [box, out] of [["source", "src-count"], ["target", "tgt-count"]]) {
     const n = $(box).value.trim().length;
-    $(out).textContent = `· ${n} / 4000`;
-    $(out).style.color = n > 4000 ? "#ef4444" : "";
+    $(out).textContent = n < 20 && n > 0 ? `· ${n} / 4000 · at least 20 to judge` : `· ${n} / 4000`;
+    $(out).style.color = n > 4000 ? "#ef4444" : (n > 0 && n < 20 ? "var(--warnbox-fg)" : "");
   }
   const ready = !!reg && !!account && !!target &&
     $("source").value.trim().length >= 20 && $("target").value.trim().length >= 20 &&
@@ -504,6 +548,7 @@ async function renderLedger() {
 /* -------------------------------------------------------------------- modes */
 function setMode(next) {
   mode = next;
+  document.body.setAttribute("data-mode", mode);
   $("mode-guided").setAttribute("aria-selected", String(mode === "guided"));
   $("mode-free").setAttribute("aria-selected", String(mode === "free"));
   $("src-pick").hidden = mode !== "free";
@@ -565,8 +610,18 @@ $("mt").onclick = async () => {
                 "&langpair=" + from.code + "|" + to.code;
     const r = await fetch(url);
     const j = await r.json();
-    const out = j?.responseData?.translatedText;
+    let out = j?.responseData?.translatedText;
     if (!out || j.responseStatus >= 400) throw new Error(j?.responseDetails || "no translation came back");
+
+    /* The service returns its own placeholder markup inside the text, and on
+       short or informal input it sometimes returns nothing but that. Pasting
+       `<g id="1">1</g>` into the box and calling it a translation would be
+       worse than admitting it failed. */
+    out = out.replace(/<\/?g[^>]*>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+    const letters = (out.match(/\p{L}/gu) || []).length;
+    if (letters < Math.max(3, out.length * 0.4)) {
+      throw new Error("it came back as markup rather than words, which it does on very short or informal input");
+    }
     $("target").value = out;
     $("target").dispatchEvent(new Event("input"));
     $("mtSt").innerHTML = `Machine translation, ${source} to ${target}. <b>Read it before you sign
