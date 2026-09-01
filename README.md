@@ -153,6 +153,16 @@ picked, in either mode. Keeping the working set that size is what keeps the page
 light; the other sixty-one are still searchable, and are labelled in the list as
 having neither.
 
+**Which key signs is the reader's choice, not the page's.** Every wallet in the
+browser announces itself under EIP-6963, so pressing Connect lists them by name
+and icon rather than picking one — the old code took Rabby if it saw it and the
+first announcement otherwise, which is a silent decision about whose key signs.
+Connect again to switch, Disconnect to drop it. The page also follows
+`accountsChanged`, because an address printed here that is not the one signing
+is worse than no address at all. Disconnecting leaves the register loaded:
+reading it is free and needs no wallet, so it takes away signing and nothing
+else.
+
 The language list is searchable by the names people actually type. "Farsi",
 "Mandarin", "Bengali", "Naija" and "Mexico" all find the right community, which
 they did not until every entry was given its other names and the countries it is

@@ -31,6 +31,10 @@ button:disabled{cursor:not-allowed;opacity:.38}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-3);margin:0}
 .gtext{background:linear-gradient(100deg,var(--g1) 0%,var(--g2) 30%,var(--g3) 55%,var(--g2) 75%,var(--g1) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gslide 8s linear infinite}
 @keyframes gslide{to{background-position:250% 0}}
+.wchoice{display:flex;align-items:center;gap:10px;border-radius:999px;border:1px solid var(--border);background:var(--btn-bg);color:var(--fg);padding:9px 17px 9px 10px;font-weight:500;font-size:14.5px;cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease}
+.wchoice:hover{border-color:var(--ring);box-shadow:0 0 0 3px rgba(155,106,246,.16)}
+.wchoice img{width:22px;height:22px;border-radius:6px;flex:0 0 auto}
+.wchoice .rdns{color:var(--fg-3);font-size:12px}
 @keyframes spin360{to{transform:rotate(1turn)}}
 @keyframes cheer{0%{transform:scale(.94);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
 .cheer{animation:cheer .45s cubic-bezier(.22,.9,.28,1) both}
@@ -250,7 +254,16 @@ details.newhere>div{padding:0 22px 22px}
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <button id="connect" class="btn btn-primary">Connect wallet</button>
         <span id="who" class="mono" style="color:var(--fg-3);font-size:13px"></span>
+        <button id="disconnect" class="btn" hidden="hidden" style="padding:8px 16px;font-size:13.5px">Disconnect</button>
         <button id="faucet" class="btn" disabled="disabled" style="margin-inline-start:auto">Get test GEN</button>
+      </div>
+      <div id="wallets" class="warnbox" style="background:var(--muted);box-shadow:inset 0 0 0 1px var(--border)">
+        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+          <b id="walletsTitle">Which wallet?</b>
+          <button id="walletsNo" class="btn" style="margin-inline-start:auto;padding:6px 14px;font-size:13px">Not now</button>
+        </div>
+        <p class="note" style="margin:6px 0 0" id="walletsWhy">Nothing is signed by choosing — the wallet asks you first.</p>
+        <div id="walletList" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"></div>
       </div>
       <p class="note">A register is one deployed Faithful contract, and it holds the certificates. You need one before anything can be certified, so this step comes first. Deploy your own, or paste an address somebody has shared.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">

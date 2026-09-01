@@ -307,8 +307,15 @@ function checkMismatch() {
 }
 
 /* ---------------------------------------------------------------- wallet */
+/* EIP-6963: every wallet in the browser announces itself, so a page with more
+   than one installed can ask which rather than guessing. The old code picked
+   Rabby if it saw it and the first announcement otherwise, which is a silent
+   choice made on somebody else's behalf about which key signs. */
 const provs = [];
-addEventListener("eip6963:announceProvider", (e) => provs.push(e.detail));
+addEventListener("eip6963:announceProvider", (e) => {
+  const d = e.detail;
+  if (!provs.some((p) => p.info.rdns === d.info.rdns)) provs.push(d);
+});
 dispatchEvent(new Event("eip6963:requestProvider"));
 let provider = null, account = null, reg = null;
 
@@ -328,19 +335,127 @@ async function client() {
 }
 const reader = () => createClient({ chain: studionet });
 
-$("connect").onclick = async () => {
-  provider = (provs.find((p) => /rabby/i.test(p.info.name)) || provs[0])?.provider || window.ethereum;
-  if (!provider) { log("no wallet found in this browser", "bad"); return; }
-  await ensureNet(provider);
-  const a = await provider.request({ method: "eth_requestAccounts" });
-  account = a[0];
-  $("who").textContent = account;
-  $("faucet").disabled = false; $("deploy").disabled = false;
-  log("connected " + account, "ok");
-  counts(); sayNext();
-  const balance = BigInt(await rpc("eth_getBalance", [account, "latest"]) || "0x0");
-  if (balance < BigInt(1e17))
-    log("  balance is low. Press Get test GEN, or the wallet will refuse to sign without saying why.", "warn");
+/* One address is signing everything on this page, so the page says which, and
+   lets it be changed or dropped without a reload. */
+function paintWallet() {
+  const on = !!account;
+  $("who").textContent = account || "";
+  $("disconnect").hidden = !on;
+  $("connect").textContent = on ? "Change wallet" : "Connect wallet";
+  $("connect").classList.toggle("btn-primary", !on);
+  $("faucet").disabled = !on;
+  $("deploy").disabled = !on;
+}
+
+function showWallets(force) {
+  const list = $("walletList");
+  const box = $("wallets");
+  list.innerHTML = "";
+  for (const p of provs) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "wchoice";
+    b.innerHTML =
+      `<img src="${p.info.icon}" alt="" aria-hidden="true">` +
+      `<span>${p.info.name}<br><span class="rdns">${p.info.rdns}</span></span>`;
+    b.onclick = () => connectWith(p.provider, p.info.name);
+    list.appendChild(b);
+  }
+  /* A wallet that predates EIP-6963 never announces and is only reachable
+     through window.ethereum. Offering it by name would be a guess, so it is
+     offered as what it is. */
+  if (!provs.length && window.ethereum) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "wchoice";
+    b.innerHTML = `<span>The wallet in this browser<br><span class="rdns">did not announce a name</span></span>`;
+    b.onclick = () => connectWith(window.ethereum, "the browser wallet");
+    list.appendChild(b);
+  }
+  $("walletsTitle").textContent = force && account ? "Connect a different wallet?" : "Which wallet?";
+  $("walletsWhy").textContent = provs.length > 1
+    ? `This browser announced ${provs.length} wallets. Nothing is signed by choosing — the wallet asks you first.`
+    : "Nothing is signed by choosing — the wallet asks you first.";
+  box.setAttribute("data-on", "1");
+}
+
+async function connectWith(p, name) {
+  $("wallets").setAttribute("data-on", "0");
+  try {
+    provider = p;
+    await ensureNet(provider);
+    const a = await provider.request({ method: "eth_requestAccounts" });
+    if (!a || !a[0]) { log("no account came back from " + name, "bad"); return; }
+    account = a[0];
+    watch(provider);
+    paintWallet();
+    log("connected " + account + " through " + name, "ok");
+    counts(); sayNext();
+    const balance = BigInt(await rpc("eth_getBalance", [account, "latest"]) || "0x0");
+    if (balance < BigInt(1e17))
+      log("  balance is low. Press Get test GEN, or the wallet will refuse to sign without saying why.", "warn");
+  } catch (e) {
+    /* 4001 is the wallet's own "no". It is an answer, not a failure. */
+    if (e && e.code === 4001) log("connection refused in " + name + ". Nothing was signed.", "warn");
+    else log("could not connect through " + name + ": " + (e?.message || e), "bad");
+    provider = null; account = null;
+    paintWallet();
+  }
+}
+
+/* The account can change in the wallet without the page being told to look. If
+   it does and nobody notices, the address printed here is not the one signing. */
+let watching = null;
+function watch(p) {
+  if (watching === p || !p.on) return;
+  watching = p;
+  p.on("accountsChanged", (a) => {
+    if (!a || !a.length) { forget("the wallet disconnected this site"); return; }
+    if (a[0] === account) return;
+    account = a[0];
+    paintWallet();
+    log("the wallet switched to " + account, "warn");
+    sayNext();
+  });
+  p.on("chainChanged", () => {
+    log("the wallet changed network. Anything signed from here switches back to GenLayer Studio first.", "warn");
+  });
+}
+
+function forget(why) {
+  account = null; provider = null;
+  paintWallet();
+  /* The register stays loaded on purpose. Reading it costs nothing and needs no
+     wallet, so a disconnect should take away the ability to sign and nothing
+     else. `counts()` is what disables Certify. */
+  counts();
+  log(why + ". Reading is still free — the register stays loaded — but nothing can be signed until a wallet is connected.", "warn");
+  sayNext();
+}
+
+$("connect").onclick = () => {
+  if (!provs.length && !window.ethereum) {
+    log("no wallet found in this browser. Rabby and MetaMask both work here.", "bad");
+    return;
+  }
+  /* One wallet and nobody connected yet is not a choice worth making somebody
+     click through. Everything else asks. */
+  if (provs.length === 1 && !account) { connectWith(provs[0].provider, provs[0].info.name); return; }
+  if (!provs.length && !account) { connectWith(window.ethereum, "the browser wallet"); return; }
+  showWallets(true);
+};
+
+$("walletsNo").onclick = () => $("wallets").setAttribute("data-on", "0");
+
+$("disconnect").onclick = async () => {
+  const p = provider;
+  const was = account;
+  forget("disconnected " + was);
+  /* Best effort: some wallets honour this and drop the site's permission, and
+     the ones that do not simply refuse. Either way this page has forgotten the
+     address; the wallet may still list the site until it is removed there. */
+  try { await p?.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] }); }
+  catch (e) {}
 };
 $("faucet").onclick = async () => {
   await rpc("sim_fundAccount", { account_address: account, amount: 300e18 });
@@ -749,8 +864,7 @@ $("reset").onclick = () => {
   $("ledger").querySelector("tbody").innerHTML =
     `<tr><td style="color:var(--fg-3);border:0">nothing loaded yet</td></tr>`;
   $("log").textContent = "ready.";
-  $("deploy").disabled = !account;
-  $("faucet").disabled = !account;
+  paintWallet();
   disarm();
   $("resetSt").innerHTML = `<span style="color:#22c55e">Cleared.</span> ` +
     (account ? "Deploy a register to start again." : "Connect a wallet, then deploy a register.");
@@ -758,6 +872,7 @@ $("reset").onclick = () => {
   log("cleared.", "ok");
 };
 
+paintWallet();
 paintLangs();
 setMode("guided");
 counts();
