@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
 import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
-import { PASSAGES, SCRIPTS, scriptOf } from "./texts.js";
+import { PASSAGES, SCRIPTS, scriptOf, scriptName } from "./texts.js";
 import { LANGUAGES, DISCORD, isSupported, search } from "./languages.js";
 
 const byLabel = (l) => LANGUAGES.find((x) => x.label === l) || null;
@@ -292,7 +292,11 @@ function checkMismatch() {
     box.style.background = "var(--okbox-bg)";
     box.style.boxShadow = "inset 0 0 0 1px #22c55e55";
     box.style.color = "var(--fg-2)";
-    box.innerHTML = `Your translation is written in <b>${got || "an unrecognised script"}</b>, which is what ${target} is written in. Good.`;
+    /* "written in arabic" reads as the Arabic language, and Persian is not
+       Arabic. It is the script they share, so say script. */
+    box.innerHTML = got
+      ? `Your translation is written in <b>${scriptName(got)}</b>, which is the script ${target} uses. Good.`
+      : `The script here is not one this page recognises, which is not by itself a problem. Good.`;
     return;
   }
   box.setAttribute("data-on", "1");
@@ -300,7 +304,8 @@ function checkMismatch() {
   box.style.boxShadow = "inset 0 0 0 1px #f59e0b88";
   box.style.color = "var(--warnbox-fg)";
   box.innerHTML = `<b>This does not look like ${target}.</b> You selected ${target}, which is written in
-    ${expected.join(" or ")}, but the text you pasted is mostly <b>${got}</b>.
+    ${expected.map(scriptName).join(" or ")}, but the text you pasted is mostly in
+    <b>${scriptName(got)}</b>.
     Validators asked to check a ${target} translation of a text that is not in ${target} will not agree
     with each other, the round comes back <b>undetermined</b>, and nothing is stored. Fix the language
     or the text before signing.`;

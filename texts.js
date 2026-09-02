@@ -210,6 +210,22 @@ export const PASSAGES = {
 /* Which scripts a passage in this language may legitimately be written in.
    Used only to warn, never to refuse. A language can be written in more than
    one script, and Hindi-Urdu is written in two. */
+/* A script is not a language. Persian and Arabic are two different languages
+   written in the same script, and Hindi and Urdu are one spoken language written
+   in two — which is exactly the confusion this page exists to be careful about.
+   The keys below are script ids; these are what a reader should be shown. */
+export const SCRIPT_NAMES = {
+  latin: "the Latin alphabet",
+  arabic: "the Arabic script",
+  cyrillic: "the Cyrillic alphabet",
+  han: "Han characters",
+  kana: "kana",
+  hangul: "Hangul",
+  devanagari: "Devanagari",
+  bengali: "the Bengali script",
+};
+export const scriptName = (id) => SCRIPT_NAMES[id] || id;
+
 export const SCRIPTS = {
   English: ["latin"], Indonesian: ["latin"], Latam: ["latin"], Nigerian: ["latin"],
   Turkish: ["latin"], Vietnamese: ["latin"], German: ["latin"],
