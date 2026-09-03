@@ -268,6 +268,11 @@ const counts = () => {
 $("source").addEventListener("input", () => { counts(); checkMismatch(); });
 $("target").addEventListener("input", () => { counts(); checkMismatch(); });
 $("cert-name").addEventListener("input", counts);
+/* The suggestion is a placeholder, not a decision. Selecting it on focus means
+   typing replaces it, instead of landing in the middle of "persian-vlj7". */
+$("cert-name").addEventListener("focus", function () {
+  if (/^[a-z0-9-]+-[a-z0-9]{4}$/.test(this.value.trim())) this.select();
+});
 
 function suggestName() {
   if ($("cert-name").value.trim()) return;
@@ -504,9 +509,17 @@ async function useRegister(address) {
      rules() is not a Faithful register, and finding that out should not cost a
      signature. Anybody who wants the thresholds themselves reads rules() on the
      explorer, or the table in the README. */
-  try { await reader().readContract({ address, functionName: "rules", args: [] }); }
-  catch (e) { log("  ✗ that address did not answer rules(), so it is not a Faithful register", "bad"); return false; }
+  const probe = await readOrRetry(address, "rules");
+  if (!probe.ok) {
+    log("  ✗ " + address + " did not answer rules() after four tries. Either it is not a Faithful "
+      + "register, or the network is refusing reads right now — try Load again before believing the first one.", "bad");
+    return false;
+  }
   reg = address;
+  /* "Cleared. Deploy a register to start again." is true for exactly as long as
+     there is no register. The moment one loads it is stale advice sitting in
+     green under a page that has already moved on. */
+  $("resetSt").textContent = "";
   localStorage.setItem("faithful_register", address);
   $("addr").value = address;
   $("regLink").innerHTML = "This register on the explorer: " + link("/address/" + address, address);
@@ -659,19 +672,41 @@ $("certify").onclick = async () => {
 };
 
 /* ------------------------------------------------------------------- ledger */
+/* Studio drops requests. Not often enough to notice while clicking, often
+   enough that every single-attempt read is a coin toss — and a failed read here
+   used to be indistinguishable from an answer: the ledger said "nothing loaded
+   yet" for a register with certificates in it, and a register that did not
+   answer once was declared "not a Faithful register". Both are lies told
+   confidently. Retry, and when it really will not answer, say that instead. */
+async function readOrRetry(address, fn, args = [], tries = 4) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return { ok: true, value: await reader().readContract({ address, functionName: fn, args }) }; }
+    catch (e) { last = e; await new Promise((r) => setTimeout(r, 700 * (i + 1))); }
+  }
+  return { ok: false, error: last };
+}
+
 async function renderLedger() {
   if (!reg) return;
-  const rd = reader();
-  let names = [];
-  try { names = JSON.parse(String(await rd.readContract({ address: reg, functionName: "names", args: [] }))); }
-  catch (e) { return; }
   const body = $("ledger").querySelector("tbody");
+  const got = await readOrRetry(reg, "names");
+  if (!got.ok) {
+    body.innerHTML = `<tr><td style="color:var(--warnbox-fg);border:0">Could not reach the network to read
+      this register. Nothing is wrong with it — press Load again.</td></tr>`;
+    return;
+  }
+  const names = JSON.parse(String(got.value));
   if (!names.length) { body.innerHTML = `<tr><td style="color:var(--fg-3);border:0">this register is empty</td></tr>`; return; }
   const rows = [`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th></tr>`];
   for (const n of names.slice().reverse()) {
-    let e;
-    try { e = JSON.parse(String(await rd.readContract({ address: reg, functionName: "certificate", args: [n] }))); }
-    catch (err) { continue; }
+    const one = await readOrRetry(reg, "certificate", [n]);
+    if (!one.ok) {
+      rows.push(`<tr><td class="mono">${n}</td><td colspan="6" style="color:var(--warnbox-fg)">could not be
+        read just now</td></tr>`);
+      continue;
+    }
+    const e = JSON.parse(String(one.value));
     const [colour, label] = BANNERS[e.verdict] || ["#94a3b8", e.verdict];
     rows.push(`<tr>
       <td class="mono">${e.name}</td>
@@ -722,6 +757,10 @@ function saySupport() {
 function setMode(next) {
   mode = next;
   document.body.setAttribute("data-mode", mode);
+  /* Remembered, because a reload used to drop anybody in the middle of a run of
+     Any pair certifications back into Guided — where the source box is
+     read-only, which reads as the page having locked itself. */
+  try { localStorage.setItem("faithful_mode", mode); } catch (e) {}
   $("mode-guided").setAttribute("aria-selected", String(mode === "guided"));
   $("mode-free").setAttribute("aria-selected", String(mode === "free"));
   $("src-pick").hidden = mode !== "free";
@@ -862,7 +901,6 @@ $("reset").onclick = () => {
   document.body.setAttribute("data-ready", "0");
   for (const id of ["step1", "step2", "step3"]) done(id, false);
   $("addr").value = ""; $("regLink").textContent = "";
-  $("source").setAttribute("readonly", "");
   $("source").value = ""; $("target").value = ""; $("cert-name").value = "";
   $("giveSt").textContent = ""; $("tgt-other").value = "";
   $("mismatch").setAttribute("data-on", "0");
@@ -872,16 +910,25 @@ $("reset").onclick = () => {
     `<tr><td style="color:var(--fg-3);border:0">nothing loaded yet</td></tr>`;
   $("log").textContent = "ready.";
   paintWallet();
+  paintLangs();
+  /* disarm() puts the button back and restores the line that explains it. The
+     old code left a green "Cleared. Deploy a register to start again." there
+     instead, which stayed on screen after a register was deployed and told the
+     reader to do the thing they had just done. */
   disarm();
-  $("resetSt").innerHTML = `<span style="color:#22c55e">Cleared.</span> ` +
-    (account ? "Deploy a register to start again." : "Connect a wallet, then deploy a register.");
-  paintLangs(); chooseTarget(); counts(); sayNext();
+  /* Re-apply the mode rather than locking the source box by hand. Doing it by
+     hand is what left Any pair with a read-only source after a Start over: the
+     box belongs to whichever mode is selected, and only setMode knows which. */
+  setMode(mode);
+  sayNext();
   log("cleared.", "ok");
 };
 
 paintWallet();
 paintLangs();
-setMode("guided");
+let savedMode = "guided";
+try { savedMode = localStorage.getItem("faithful_mode") === "free" ? "free" : "guided"; } catch (e) {}
+setMode(savedMode);
 counts();
 sayNext();
 const saved = localStorage.getItem("faithful_register");
