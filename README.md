@@ -45,6 +45,51 @@ Coverage is separate for the same reason. A half-translated document is not
 inaccurate — every word it did translate may be perfect. It is incomplete, which
 is a different defect with a different fix.
 
+## Four certificates, on chain
+
+One register, four translations of the same English sentence into Persian,
+signed from one wallet. Every number below is read off the contract, not
+reported here from a run somewhere else.
+
+**Register:** [`0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15`](https://explorer-studio.genlayer.com/address/0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15)
+· GenLayer Studio
+
+> Ferdowsi completed the Shahnameh around 1010 after roughly three decades of work, in some fifty thousand couplets.
+
+| certificate | verdict | fid | cov | flu | `is_certified` | votes | tx |
+|---|---|---|---|---|---|---|---|
+| `faithful-and-natural` | certified | 95 | 100 | 95 | **true** | 3–0 | [↗](https://explorer-studio.genlayer.com/tx/0x8dbb767d0967f067295875c92a249b29deea09feb6975b4587329278d940f144) |
+| `faithful-but-clumsy` | certified **with reservations** | 100 | 100 | **35** | **true** | 3–1 | [↗](https://explorer-studio.genlayer.com/tx/0x7c7782d53158d6959046948b87e963105c0dc9d643668bb17261f79b8a428d04) |
+| `numbers-moved` | rejected · `number_changed` | **10** | 95 | 92 | false | 3–0 | [↗](https://explorer-studio.genlayer.com/tx/0x3be94fee5395f57ade86d7cfddbeb06cdc4d9c890dc18c484817c36e610a608e) |
+| `half-translated` | rejected · `omission` | 100 | **50** | 100 | false | 3–1 | [↗](https://explorer-studio.genlayer.com/tx/0xe72a9f0970b75a767d5ce07783f1711a2782a1fef556683eb7e8e6035ffc3860) |
+
+**`faithful-but-clumsy` is the one that matters.** Fidelity 100, coverage 100,
+fluency **35** — and it certifies. The leader's own note: *"word-for-word and
+follows English syntax rather than Persian grammar, resulting in a very
+unnatural and robotic sentence structure."* Every commitment in the sentence
+survived, so the contract does not refuse it. A checker that collapsed these
+into one score would have thrown away a translation that was completely correct.
+
+**`half-translated` is its mirror.** Fidelity 100 and fluency 100 — everything it
+does say is accurate and reads well — and it is refused anyway, on coverage 50,
+because half the sentence is not there. *"omits the duration of the work (three
+decades) and the volume of the work (fifty thousand couplets)."* One number
+covering both cases would have to call these two documents similar. They are
+opposites.
+
+**`numbers-moved` is what the whole thing is for.** 1010 became 1210, three
+decades became three years, fifty thousand couplets became five thousand.
+Fluency 92: it reads perfectly. That is exactly why fluency cannot be allowed to
+decide anything.
+
+Read any of it back without spending a transaction:
+
+```
+gl.get_contract_at(addr).view().is_certified("faithful-but-clumsy")   → true
+gl.get_contract_at(addr).view().certificate("half-translated")        → the scores and defects
+gl.get_contract_at(addr).view().texts("numbers-moved")                → the exact pair judged
+```
+
 ## What validators must agree on
 
 The verdict each of them derives on its own, first and always. Numbers alone
@@ -137,16 +182,23 @@ read, rather than costing a signature to find out.
 
 ## The site
 
-Pick your community and it hands you one of ten short English passages about
-that community's own history — no repeats until you have seen all ten. You
-translate it, and both texts are submitted together. `texts.js` holds all 160.
+Live at **<https://faithful-one.vercel.app>**. Two modes.
 
-**The source language is not something you can set.** It is English, fixed by
-the passage, and the box is read-only. That is not a simplification: a label a
-reader can change independently of the text will eventually disagree with it,
-and this page was built after a round came back `UNDETERMINED` for exactly that
-reason — a target of Hindi-Urdu selected over an English-to-Persian pair, which
-the leader called "fluent Urdu" and the validators would not.
+**Guided** picks your community and hands you one of ten short English passages
+about that community's own history — no repeats until you have seen all ten.
+`texts.js` holds all 160. Here **the source language cannot be set**: it is
+English, fixed by the passage, and the box is read-only. That is not a
+simplification. A label a reader can change independently of the text will
+eventually disagree with it, and this page was built after a round came back
+`UNDETERMINED` for exactly that reason — a target of Hindi-Urdu selected over an
+English-to-Persian pair, which the leader called "fluent Urdu" and the
+validators would not.
+
+**Any pair** takes both texts and both languages from you, which is how the four
+certificates above were made. The protection there is different: the language is
+still chosen from the list rather than typed, so the label always names a real
+language, and a script check warns before signing when the text does not look
+like the language it is filed under.
 
 **Only those sixteen are supported, and the page says so rather than letting
 somebody find out after a signature.** Choosing anything else is allowed —
