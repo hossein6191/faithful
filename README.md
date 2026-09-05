@@ -15,6 +15,15 @@ certify("acme-fa", "English", "Persian", source, translation)
   → is_certified("acme-fa")   free, deterministic, readable by another contract
 ```
 
+## Demo
+
+Seventy-six seconds, no cuts: connect, load the register, paste the pair, sign, watch the
+validators vote, read the certificate on the explorer.
+
+https://github.com/hossein6191/faithful/raw/main/assets/demo.mp4
+
+[![Faithful demo — click to play](assets/demo-poster.png)](https://github.com/hossein6191/faithful/blob/main/assets/demo.mp4)
+
 ## The failure this exists to prevent
 
 A bad translation being waved through.
