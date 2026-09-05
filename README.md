@@ -157,9 +157,35 @@ Persian numerals so the assertion is real rather than decorative.
   a different promise.
 - **A gate before publishing**: `is_certified(name)` is a view, so another
   contract reads it with `gl.get_contract_at(addr).view().is_certified(name)`
-  and pays nothing for consensus.
+  and pays nothing for consensus. `contracts/fixtures/bounty.py` is that
+  contract, below.
 - **A record that survives the argument.** `texts(name)` publishes exactly what
   was judged, so a certificate can be checked rather than trusted.
+
+## The consequence: a bounty that can only pay a certified translator
+
+A contract that records a verdict and stops has produced an opinion.
+`contracts/fixtures/bounty.py` is the other half: a requester opens a bounty
+for one certificate name in one register, funds it, and binds the translator's
+wallet. `settle()` asks the register — through an ordinary synchronous view, no
+model, no consensus — what it already decided, and obeys it once:
+
+```
+certified, with or without reservations   → the translator is paid
+rejected                                  → the requester is refunded
+no certificate under that name yet        → nothing happens; try later
+```
+
+There is no path through it that pays for a translation the validators
+refused, and `would_pay()` says what `settle()` will do before anybody signs.
+
+`tests/on_chain/bounty.mjs` runs it against the register above: a bounty on
+`faithful-but-clumsy` pays its translator — reservations still certify — a
+bounty on `numbers-moved` sends the money back to the requester, and a bounty
+on a name that has no certificate refuses to settle and keeps the funds. It
+also proves the refusal path refunds rather than strands: value sent with a
+refused payable call is not returned by the chain, so the contract returns it
+itself and says why.
 
 ## Reading a certificate
 
@@ -237,7 +263,8 @@ amber, to red — so 42 and 85 do not look alike.
 ## Tests
 
 ```
-tests/on_chain/smoke.mjs   the four cases, against real validators
+tests/on_chain/smoke.mjs    the four cases, against real validators
+tests/on_chain/bounty.mjs   the consequence, against the register above
 ```
 
 The four are the whole argument: a faithful translation certifies, a moved price

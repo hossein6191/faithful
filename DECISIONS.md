@@ -104,8 +104,8 @@ languages nobody has added yet.
 ## Storage holds no DynArray inside a dataclass
 
 Constructing a `@allow_storage @dataclass` that has a `DynArray` field kills the
-VM with `exit_code 1` and no message at all. Measured separately on probe
-`0xFc0923d8286e8507118b522cEa443Bc22A8Be459`. `Certificate` therefore keeps its
+VM with `exit_code 1` and no message at all. Measured separately on a throwaway
+probe contract, not on the register. `Certificate` therefore keeps its
 defect list as a JSON string.
 
 `exit_code 1` with an empty message is the shape of a VM death rather than a

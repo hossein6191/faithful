@@ -9,3 +9,8 @@ artifacts/
 
 # the local dev-server launch config, not part of the site
 .claude/
+
+# the on-chain tests need genlayer-js + viem; install them beside the repo, never commit them
+node_modules
+package-lock.json
+package.json
