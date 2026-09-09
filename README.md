@@ -344,7 +344,7 @@ genvm-lint check contracts/faithful.py
 
 npm ci                                                       genlayer-js 1.1.8 and viem 2.56.3, from the lockfile
 node tests/on_chain/smoke.mjs                                the four cases, publishers, hashes and manifests, against real validators
-REGISTER=0x… node tests/on_chain/bounty.mjs                  the consequence, against the register above
+node tests/on_chain/bounty.mjs                               the consequence, 18 checks against the register above
 ```
 
 The offline suite covers the gate, the parsing, the prompt boundary, the
