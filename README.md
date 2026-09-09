@@ -54,51 +54,69 @@ Coverage is separate for the same reason. A half-translated document is not
 inaccurate — every word it did translate may be perfect. It is incomplete, which
 is a different defect with a different fix.
 
-## Four certificates, on chain
+## Six certificates, a publisher and a manifest, on chain
 
-One register, four translations of the same English sentence into Persian,
-signed from one wallet. Every number below is read off the contract, not
-reported here from a run somewhere else.
+One register, one English source — a short terms-of-service passage — and its
+translations into Persian, every transaction signed from the author's wallet
+`0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe`. Every number below is read off the
+contract, not reported here from a run somewhere else. The deployed source is
+byte-identical to `contracts/faithful.py` (sha256 `3c9c6cde…`) and passes
+`genvm-lint check` when pulled off the chain.
 
-**Register:** [`0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15`](https://explorer-studio.genlayer.com/address/0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15)
-· GenLayer Studio
+**Register:** [`0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2`](https://explorer-studio.genlayer.com/address/0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2)
+· GenLayer Studio · [deploy ↗](https://explorer-studio.genlayer.com/tx/0xc7eebc7efe0a34fbd9790e4ff0c07b5e413bff0f2a51253579bd220012a6436e)
 
-> Ferdowsi completed the Shahnameh around 1010 after roughly three decades of work, in some fifty thousand couplets.
+> Acme Cloud charges 20 USD per seat each month. Overage is billed at 0.10 USD per gigabyte. Invoices are due within 14 days. We may change these terms with 30 days notice. Support requests are answered within 2 business days.
 
-| certificate | verdict | fid | cov | flu | `is_certified` | votes | tx |
-|---|---|---|---|---|---|---|---|
-| `faithful-and-natural` | certified | 95 | 100 | 95 | **true** | 3–0 | [↗](https://explorer-studio.genlayer.com/tx/0x8dbb767d0967f067295875c92a249b29deea09feb6975b4587329278d940f144) |
-| `faithful-but-clumsy` | certified **with reservations** | 100 | 100 | **35** | **true** | 3–1 | [↗](https://explorer-studio.genlayer.com/tx/0x7c7782d53158d6959046948b87e963105c0dc9d643668bb17261f79b8a428d04) |
-| `numbers-moved` | rejected · `number_changed` | **10** | 95 | 92 | false | 3–0 | [↗](https://explorer-studio.genlayer.com/tx/0x3be94fee5395f57ade86d7cfddbeb06cdc4d9c890dc18c484817c36e610a608e) |
-| `half-translated` | rejected · `omission` | 100 | **50** | 100 | false | 3–1 | [↗](https://explorer-studio.genlayer.com/tx/0xe72a9f0970b75a767d5ce07783f1711a2782a1fef556683eb7e8e6035ffc3860) |
+Before anything was judged, the author published the source's hash under their
+own address — [`publish` ↗](https://explorer-studio.genlayer.com/tx/0x92451d135d85c518d3307529a5b670aee4d009feae4e495b12d2d95b74435281), `source_hash 6530eef7…`,
+title *Acme Cloud terms of service* — so every certificate over that source
+below carries the publisher `0x0A9fd8Fe…`.
 
-**`faithful-but-clumsy` is the one that matters.** Fidelity 100, coverage 100,
-fluency **35** — and it certifies. The leader's own note: *"word-for-word and
-follows English syntax rather than Persian grammar, resulting in a very
-unnatural and robotic sentence structure."* Every commitment in the sentence
-survived, so the contract does not refuse it. A checker that collapsed these
+| certificate | verdict | fid | cov | flu | `is_certified` | votes | pair hash | tx |
+|---|---|---|---|---|---|---|---|---|
+| `faithful-and-natural` | certified | 100 | 100 | 98 | **true** | 3–0 | `74de75e8…` | [↗](https://explorer-studio.genlayer.com/tx/0x6f05b6879e30ef7a4a3921cceaf02f1e88b8292e1eda0bbcd42b2ec1cef00b94) |
+| `faithful-but-clumsy` | certified **with reservations** | 97 | 100 | **30** | **true** | 3–2 | `6367e8b6…` | [↗](https://explorer-studio.genlayer.com/tx/0x5b5b2b2594cc33119c86477bc8da1c932adb238ce4b0ef0feb3f16c627d59822) |
+| `numbers-moved` | rejected · `number_changed` | **40** | 100 | 90 | false | 3–0 | `77b00bf0…` | [↗](https://explorer-studio.genlayer.com/tx/0xb99f402c2e0726afab590f8693b19e828203f495c70089d7636bc15e6bec0145) |
+| `half-translated` | rejected · `omission`, `untranslated` | 95 | **35** | 30 | false | 3–1 | `6f915f2d…` | [↗](https://explorer-studio.genlayer.com/tx/0x4b86b9510c98b506db983c3e0c0fc3fa0a86125e68df24cfb719357b4ef8530d) |
+| `terms-part-1` | certified | 100 | 100 | 100 | **true** | 3–0 | `18502a70…` | [↗](https://explorer-studio.genlayer.com/tx/0xc8706a495d09355ecc82880f750a5c2b74afdf938d16212f1223bc690f59b86e) |
+| `terms-part-2` | certified | 100 | 100 | 98 | **true** | 3–0 | `898bdd71…` | [↗](https://explorer-studio.genlayer.com/tx/0x37a8611588454c08d2eb90d86d156e44e11068474454da54e28780902523cd09) |
+
+Then two more transactions, neither of which asked a model anything:
+
+| step | votes | result | tx |
+|---|---|---|---|
+| `manifest("acme-terms-in-two-parts", [part-1, part-2])` | 3–0 | `manifest_hash 8a43f0b5…`, **certified_now: true** | [↗](https://explorer-studio.genlayer.com/tx/0x630247aaa7c10b4c1e6538513bd2441458693d70215249162b628bceba9c0a0b) |
+| `certify` the faithful pair again under a new name | 3–0 | **refused**: *this exact source and translation are already certified as faithful-and-natural; a certificate is not asked for twice* | [↗](https://explorer-studio.genlayer.com/tx/0x9075f93305b7cae53844f7fce7d08ad4d97870cecfaf5e31a73344af8b8d19c2) |
+
+**`faithful-but-clumsy` is the one that matters.** Fidelity 97, coverage 100,
+fluency **30** — and it certifies. Every commitment in the passage survived —
+20 USD, 0.10 USD, 14 days, 30 days, 2 business days — in a word-for-word
+rendering that no Persian reader would write. A checker that collapsed these
 into one score would have thrown away a translation that was completely correct.
 
-**`half-translated` is its mirror.** Fidelity 100 and fluency 100 — everything it
-does say is accurate and reads well — and it is refused anyway, on coverage 50,
-because half the sentence is not there. *"omits the duration of the work (three
-decades) and the volume of the work (fifty thousand couplets)."* One number
-covering both cases would have to call these two documents similar. They are
-opposites.
+**`half-translated` is its mirror.** Fidelity 95 — everything it does say is
+accurate — and it is refused anyway, on coverage 35, because four of the five
+sentences are still in English. One number covering both cases would have to
+call these two documents similar. They are opposites.
 
-**`numbers-moved` is what the whole thing is for.** 1010 became 1210, three
-decades became three years, fifty thousand couplets became five thousand.
-Fluency 92: it reads perfectly. That is exactly why fluency cannot be allowed to
-decide anything.
+**`numbers-moved` is what the whole thing is for.** 20 USD became 35 USD and
+30 days notice became 7. Fluency 90: it reads perfectly. That is exactly why
+fluency cannot be allowed to decide anything.
+
+**The manifest is the document.** The same passage was judged again in two
+parts, and `is_document_certified(8a43f0b5…)` is true because both parts
+passed. `terms-part-1` and `terms-part-2` carry no publisher: nobody published
+the hashes of the halves, and the contract does not pretend otherwise.
 
 Read any of it back without spending a transaction:
 
 ```
-gl.get_contract_at(addr).view().is_certified("faithful-but-clumsy")   → true
-gl.get_contract_at(addr).view().certificate("half-translated")        → the scores and defects
-gl.get_contract_at(addr).view().texts("numbers-moved")                → the exact pair judged
+gl.get_contract_at(addr).view().is_certified_hash("74de75e8…")         → true
+gl.get_contract_at(addr).view().is_document_certified("8a43f0b5…")     → true
+gl.get_contract_at(addr).view().certificate("half-translated")          → the scores, defects, hashes and publisher
+gl.get_contract_at(addr).view().texts("numbers-moved")                  → the exact pair judged
 ```
-
 ## What validators must agree on
 
 The verdict each of them derives on its own, first and always. Numbers alone

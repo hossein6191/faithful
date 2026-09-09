@@ -1,0 +1,159 @@
+{
+ "register": "0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2",
+ "taken_at": "2026-09-09T15:10:32Z",
+ "names": [
+  "faithful-and-natural",
+  "faithful-but-clumsy",
+  "numbers-moved",
+  "half-translated",
+  "terms-part-1",
+  "terms-part-2"
+ ],
+ "certificates": {
+  "faithful-and-natural": {
+   "name": "faithful-and-natural",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "certified",
+   "fidelity": 100,
+   "coverage": 100,
+   "fluency": 98,
+   "defects": [],
+   "notes": "Accurate and complete translation; numbers, obligations, notice period, and response time are preserved. Persian reads naturally.",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965223,
+   "source_hash": "6530eef7c99052e17d1fcf2e3125d6e86212a05552949e37cfe8b6895b2ed02e",
+   "target_hash": "065810a3746ddbdb53b394d2f4e8aa413eb78ce8f8d3c52e44c62aa3749bbb34",
+   "pair_hash": "74de75e86c6094ab391d92bbddbe161a23d254e4620a69e893f3ad609161bec6",
+   "publisher": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "publisher_title": "Acme Cloud terms of service"
+  },
+  "faithful-but-clumsy": {
+   "name": "faithful-but-clumsy",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "certified_with_reservations",
+   "fidelity": 97,
+   "coverage": 100,
+   "fluency": 30,
+   "defects": [],
+   "notes": "All numbers and facts preserved accurately. Translation is word-for-word literal, producing highly unnatural Persian syntax throughout every sentence.",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965283,
+   "source_hash": "6530eef7c99052e17d1fcf2e3125d6e86212a05552949e37cfe8b6895b2ed02e",
+   "target_hash": "554b0d4c6a09f6104d2e995212616f9bcc3edc5308a051354697428b72230234",
+   "pair_hash": "6367e8b65e8ab307c8aa19b6ae44594b3b9c2f79a990fd27abf2d3edc44aea76",
+   "publisher": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "publisher_title": "Acme Cloud terms of service"
+  },
+  "numbers-moved": {
+   "name": "numbers-moved",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "rejected",
+   "fidelity": 40,
+   "coverage": 100,
+   "fluency": 90,
+   "defects": [
+    "number_changed"
+   ],
+   "notes": "Incorrect numbers: price per seat (20→35) and notice period (30→7) differ from source",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965361,
+   "source_hash": "6530eef7c99052e17d1fcf2e3125d6e86212a05552949e37cfe8b6895b2ed02e",
+   "target_hash": "7a7396b0254719fb8340da38f7ef6bf75a769a6fc68bb4553241f46b1bcc4078",
+   "pair_hash": "77b00bf07fdddcd51877988bbd7fa7597389455530093354ded8c640b112f295",
+   "publisher": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "publisher_title": "Acme Cloud terms of service"
+  },
+  "half-translated": {
+   "name": "half-translated",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "rejected",
+   "fidelity": 95,
+   "coverage": 35,
+   "fluency": 30,
+   "defects": [
+    "omission",
+    "untranslated"
+   ],
+   "notes": "Only the first sentence is translated; the remaining four sentences are left in English, causing major untranslated content and missing Persian rendering.",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965413,
+   "source_hash": "6530eef7c99052e17d1fcf2e3125d6e86212a05552949e37cfe8b6895b2ed02e",
+   "target_hash": "644ae8bbf755a6e772e908349004b8bd20ee0101c51c54b4023d750ef8d1b55c",
+   "pair_hash": "6f915f2d347a5f9b32d6e5573b939bb2e9e4643f3a95d4ab894f2ab1c693dff2",
+   "publisher": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "publisher_title": "Acme Cloud terms of service"
+  },
+  "terms-part-1": {
+   "name": "terms-part-1",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "certified",
+   "fidelity": 100,
+   "coverage": 100,
+   "fluency": 100,
+   "defects": [],
+   "notes": "No defects found. Numbers, names, and meaning are accurately preserved, and the translation is fluent.",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965537,
+   "source_hash": "d22ee5c3b5bed6b64605a82ac97b7738da463b635e1c0a591ec17d91cb097a94",
+   "target_hash": "749bf1c8e4ba6ac832a1e49052c508af98f2c633eab7a4760fdbb0f4cf77f5f9",
+   "pair_hash": "18502a7016b714443fe37f8ce308c2d45d407b8d168490009078ce30ae55e5c4",
+   "publisher": "0x0000000000000000000000000000000000000000",
+   "publisher_title": ""
+  },
+  "terms-part-2": {
+   "name": "terms-part-2",
+   "source_lang": "English",
+   "target_lang": "Persian",
+   "verdict": "certified",
+   "fidelity": 100,
+   "coverage": 100,
+   "fluency": 98,
+   "defects": [],
+   "notes": "Accurate and complete translation; numbers, obligations, and timeframes are preserved. Persian reads naturally.",
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965589,
+   "source_hash": "95f3f1e871051108387d30409fdae42a3974fb199a9c827450cc18bd175a6d01",
+   "target_hash": "7086f2bbe27acda3e714afd4f702bcd4828df65bdcc34e17b8b6143ec1597653",
+   "pair_hash": "898bdd714aab2d01f463bd4556b7e3997bbf60ac8c49ffec40aeb74372d1ae49",
+   "publisher": "0x0000000000000000000000000000000000000000",
+   "publisher_title": ""
+  }
+ },
+ "manifests": [
+  {
+   "manifest_hash": "8a43f0b5bb15d6c6ad3374d3729af1a0ed71f1073f8bda12a36158d0efab066d",
+   "name": "acme-terms-in-two-parts"
+  }
+ ],
+ "documents": {
+  "8a43f0b5bb15d6c6ad3374d3729af1a0ed71f1073f8bda12a36158d0efab066d": {
+   "name": "acme-terms-in-two-parts",
+   "manifest_hash": "8a43f0b5bb15d6c6ad3374d3729af1a0ed71f1073f8bda12a36158d0efab066d",
+   "parts": [
+    {
+     "pair_hash": "18502a7016b714443fe37f8ce308c2d45d407b8d168490009078ce30ae55e5c4",
+     "name": "terms-part-1",
+     "verdict": "certified",
+     "certified": true,
+     "publisher": "0x0000000000000000000000000000000000000000"
+    },
+    {
+     "pair_hash": "898bdd714aab2d01f463bd4556b7e3997bbf60ac8c49ffec40aeb74372d1ae49",
+     "name": "terms-part-2",
+     "verdict": "certified",
+     "certified": true,
+     "publisher": "0x0000000000000000000000000000000000000000"
+    }
+   ],
+   "complete": true,
+   "certified": true,
+   "submitted_by": "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+   "at": 1788965707
+  }
+ }
+}

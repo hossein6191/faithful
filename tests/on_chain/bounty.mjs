@@ -28,11 +28,11 @@ const rpc = async (m, p) => {
 let pass = 0, fail = 0;
 const ok = (n, c, d = "") => { c ? pass++ : fail++; console.log(`${c ? "PASS" : "FAIL"}  ${n}${d ? "  — " + d : ""}`); };
 
-const REGISTER = process.env.REGISTER || "0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15";
+const REGISTER = process.env.REGISTER || "0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2";
 // the certificates the bounties are for, by name; their pair hashes are read from the register
 const CERT_OK = process.env.CERT_OK || "faithful-but-clumsy";
 const CERT_BAD = process.env.CERT_BAD || "numbers-moved";
-const MANIFEST = process.env.MANIFEST || "";        // a manifest hash whose parts all passed, for the document bounty
+const MANIFEST = process.env.MANIFEST || "8a43f0b5bb15d6c6ad3374d3729af1a0ed71f1073f8bda12a36158d0efab066d";        // a manifest hash whose parts all passed, for the document bounty
 const acc = createAccount(generatePrivateKey());
 await rpc("sim_fundAccount", { account_address: acc.address, amount: 900e18 });
 const c = createClient({ chain: studionet, account: acc });
