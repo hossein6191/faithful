@@ -66,7 +66,12 @@ const wait = async (tx) => {
   }
   return { msg: "TIMEOUT", exec: "" };
 };
-const pairHashOf = async (name) => JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [name] }))).pair_hash;
+import { createHash } from "node:crypto";
+// a name with no certificate yet still needs a well-formed key: the hash of a pair nobody has submitted
+const pairHashOf = async (name) => {
+  const e = JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [name] })));
+  return e.pair_hash || createHash("sha256").update("faithful-pair\nnot-submitted\n" + name, "utf8").digest("hex");
+};
 const deployFor = async (name, kind = "pair", publisher = "") => {
   const key = kind === "pair" ? await pairHashOf(name) : name;
   const dh = await c.deployContract({ code, args: [REGISTER, kind, key, publisher], leaderOnly: false });
@@ -122,7 +127,7 @@ console.log("\nbounty for not-submitted-yet at", B3);
 ok("would_pay says there is nothing to settle", String(await view(B3, "would_pay")).startsWith("nobody"), String(await view(B3, "would_pay")));
 await send(B3, "fund", [], 5n * GEN);
 const s3 = await send(B3, "settle", []);
-ok("settle refuses while the register has no certificate under that name",
+ok("settle refuses while the register holds nothing under that hash",
    s3.exec === "ERROR" && s3.msg.includes("no certificate named"), s3.msg.slice(0, 70));
 const st = JSON.parse(String(await view(B3, "status")));
 ok("the funds stay in the bounty for when it is", st.settled === false && st.pool === String(5n * GEN), `pool ${st.pool}`);
