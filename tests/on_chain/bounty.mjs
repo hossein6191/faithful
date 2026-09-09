@@ -41,6 +41,8 @@ const balance = async (a) => BigInt(await rpc("eth_getBalance", [a, "latest"]) |
 /* emit_transfer lands when the transaction finalises, and the balance can
    take a few more seconds to show it. Read until it moves, or give up after a
    minute — a transfer that never shows is a real failure, a slow one is not. */
+// the sender's balance drops the moment a tx is sent (value + gas) and comes back when the refund lands: wait for the way back
+const settledBack = async (a, before, tolerance) => { let b = await balance(a); for (let i = 0; i < 20 && before - b >= tolerance; i++) { await new Promise((r) => setTimeout(r, 4000)); b = await balance(a); } return b; };
 const balanceOnceMoved = async (a, before) => {
   for (let i = 0; i < 15; i++) {
     const b = await balance(a);
@@ -138,7 +140,7 @@ const funderBefore = await balance(acc.address);
 const late = await send(B1, "fund", [], 3n * GEN);
 ok("funding a settled bounty is refused *and refunded*, not swallowed",
    late.j?.ok === false && String(late.j?.reason || "").includes("returned"), late.j?.reason);
-ok("the refund is real", funderBefore - (await balance(acc.address)) < GEN, "net cost is gas only");
+ok("the refund is real", funderBefore - (await settledBack(acc.address, funderBefore, GEN)) < GEN, "net cost is gas only");
 
 // ---------- bound to a publisher, and to a document ----------
 const wrongPublisher = await deployFor(CERT_OK, "pair", loser);
