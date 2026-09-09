@@ -140,3 +140,60 @@ answer and the cap says so in its refusal.
 **Dialect and register.** The contract asks whether the commitments survived, not
 whether the translation suits its audience. A technically faithful translation
 into the wrong register will certify.
+
+## A certificate is bound to bytes, not to a name
+
+The first deployment keyed everything by name. A name is a label anybody could
+have typed; a consumer binding a bounty to it was binding to a string. Now every
+certificate carries `sha256(source)`, `sha256(translation)` and a pair hash over
+both plus the two languages, `is_certified_hash` gates by that identity, and the
+same pair is never judged twice. The refusal matters as much as the binding: it
+is the half of rule "somewhere to go" that says somewhere to go must not mean
+asking the same question until the answer suits.
+
+## A publisher is an address on the record, not a claim in a text
+
+"Source authenticity" cannot be judged from the text — a model cannot tell the
+publisher's bytes from a forgery of them. What can be recorded is *who put the
+hash on the chain first*. `publish` is first-come and never replaced, and a
+certificate judged later over that source carries the publisher's address. A
+consumer that cares asks for both: faithful to these bytes, and these bytes are
+the publisher's.
+
+## A document in parts is a manifest, and its verdict is never stored
+
+Each side of a pair is capped at 4,000 characters, so long documents are judged
+in parts. A manifest is an ordered list of pair hashes and nothing else:
+`is_document_certified` reads every part's certificate when it is asked, so a
+part judged later, or never, cannot be hidden behind a stored document verdict.
+
+## The prompt is fenced
+
+The first deployment placed the source and the translation in the prompt
+unfenced, under plain headings. A translation that contains `TRANSLATION (…)`
+on a line of its own could have written its own heading. Now both texts and both
+language names go through `_fence` — replace, never delete — between delimiter
+lines only the contract writes, and a static test refuses any interpolation
+that is not a `_fence()` call or a contract-owned name.
+
+## Reads that fail for a minute
+
+The review could not read `rules()` through the site's RPC while the explorer
+showed the same address. Reproduced later? No — the same read worked. Studio's
+RPC drops reads intermittently, and four quick retries fit inside one such
+minute. Reads now retry eight times over about forty seconds, and the demo
+register has a snapshot taken from the chain to fall back on, labelled as a
+snapshot, with every row linking to the explorer so nothing on it has to be
+taken on trust.
+
+## The clock
+
+`at` was `datetime.now()` — which the runtime pins to the message time, but the
+same module traps the VM in deterministic mode on other calls (measured on
+Passport). It is now the message's own datetime, read as integers.
+
+## Dependencies are pinned
+
+`requirements-dev.txt` pins the offline suite's tools and `package.json` with its
+lockfile pins `genlayer-js` and `viem` for the on-chain scripts, so a reviewer
+runs what was run here.

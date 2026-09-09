@@ -171,49 +171,97 @@ Persian numerals so the assertion is real rather than decorative.
 - **A record that survives the argument.** `texts(name)` publishes exactly what
   was judged, so a certificate can be checked rather than trusted.
 
+## Bound to what was judged, not to a name
+
+A certificate's name is a label anybody could have typed. Its identity is what
+the validators actually read:
+
+```
+source_hash = sha256(source text as stored)
+target_hash = sha256(translation as stored)
+pair_hash   = sha256("faithful-pair", source language, target language, source_hash, target_hash)
+```
+
+Every certificate carries all three, `is_certified_hash(pair_hash)` is the gate
+by identity, and the same pair is never judged twice: a second `certify` over
+identical bytes is refused with the name of the certificate that already holds
+them — a certificate is not asked for until the answer suits.
+
+**Publishers.** Whoever owns a source can put its hash on the record first,
+under its own address, with `publish(source_hash, title)`. The first publisher
+keeps the hash; another account cannot take it over. A certificate judged later
+over that source carries the publisher's address, so a consumer can ask not only
+"is this translation faithful to these bytes" but "and are these bytes the
+publisher's".
+
+**Documents in parts.** A long text is judged in parts — the contract caps each
+side at 4,000 characters — and a document is a `manifest(name, [pair_hash, …])`:
+an ordered list of the parts' pair hashes. Nothing about the document is stored
+as a verdict; `is_document_certified(manifest_hash)` reads every part's
+certificate at the moment it is asked and is true only when all of them passed.
+`document()` shows each part's live state, including parts not judged yet.
+
+The site computes the same hashes in the browser, prints them next to every
+certificate, and verifies a pair hash against the register with one free read.
+
 ## The consequence: a bounty that can only pay a certified translator
 
 A contract that records a verdict and stops has produced an opinion.
 `contracts/fixtures/bounty.py` is the other half: a requester opens a bounty
-for one certificate name in one register, funds it, and binds the translator's
-wallet. `settle()` asks the register — through an ordinary synchronous view, no
-model, no consensus — what it already decided, and obeys it once:
+for one **pair hash** — or one **document manifest** — in one register,
+optionally naming the publisher the source must have been published by, funds
+it, and binds the translator's wallet. `settle()` asks the register — through
+an ordinary synchronous view, no model, no consensus — what it already decided,
+and obeys it once:
 
 ```
-certified, with or without reservations   → the translator is paid
-rejected                                  → the requester is refunded
-no certificate under that name yet        → nothing happens; try later
+certified, with or without reservations, by the named publisher   → the translator is paid
+rejected, or published by somebody else                           → the requester is refunded
+nothing under that hash yet                                       → nothing happens; try later
 ```
 
 There is no path through it that pays for a translation the validators
 refused, and `would_pay()` says what `settle()` will do before anybody signs.
 
-`tests/on_chain/bounty.mjs` runs it against the register above: a bounty on
-`faithful-but-clumsy` pays its translator — reservations still certify — a
-bounty on `numbers-moved` sends the money back to the requester, and a bounty
-on a name that has no certificate refuses to settle and keeps the funds. It
-also proves the refusal path refunds rather than strands: value sent with a
-refused payable call is not returned by the chain, so the contract returns it
-itself and says why.
+`tests/on_chain/bounty.mjs` runs it against the register above: a bounty on the
+clumsy-but-faithful pair pays its translator — reservations still certify — a
+bounty on the moved-numbers pair sends the money back to the requester, a bounty
+naming the wrong publisher pays nobody but the requester, a document bounty on
+the two-part manifest pays the translator, and a bounty on a hash that has no
+certificate refuses to settle and keeps the funds. It also proves the refusal
+path refunds rather than strands: value sent with a refused payable call is not
+returned by the chain, so the contract returns it itself and says why.
 
 ## Reading a certificate
 
 ```
 certify(name, source_lang, target_lang, source, translation)   the one call that costs consensus
+publish(source_hash, title)                                    a publisher's address on the record, first come
+manifest(name, [pair_hash, …])                                 a document judged in parts
 
-is_certified(name) -> bool    the gate; reservations still certify
-certificate(name)             verdict, three scores, defects, who submitted it
-texts(name)                   the exact pair that was judged
-communities()                 the sixteen labels and the language each means
-rules()                       the gate and the agreement rule
-names()                       what this register holds
+is_certified(name) -> bool             the gate; reservations still certify
+is_certified_hash(pair_hash) -> bool   the gate by identity
+is_document_certified(manifest_hash)   true only when every part passed
+certificate(name) · certificate_hash(pair_hash)
+                                       verdict, three scores, defects, submitter, hashes, publisher
+texts(name)                            the exact pair that was judged
+document(manifest_hash)                every part's live state
+publisher_of(source_hash)              who published it, and under what title
+communities()                          the sixteen labels and the language each means
+rules()                                the gate, the agreement rule, and the bindings
+names() · manifests_list()             what this register holds
 ```
 
 `rules()` publishes the thresholds and the comparison, so nobody has to read the
 source to know what a certificate means. The site does not print it — a wall of
 raw JSON is not something anybody reads on the way past — but it does call it:
 an address that cannot answer `rules()` is refused as a register with a free
-read, rather than costing a signature to find out.
+read, rather than costing a signature to find out. Studio's RPC sometimes
+answers a read with *Contract not found* for an address the explorer shows
+perfectly well, for a minute at a time; reads therefore retry eight times over
+about forty seconds, and if the demo register still cannot be read the site
+shows a snapshot of it taken from the chain (`data/snapshot.json`, made by
+`tools/snapshot.mjs`), labelled as such, with every row linking to the explorer.
 
 ## The site
 
@@ -272,9 +320,20 @@ amber, to red — so 42 and 85 do not look alike.
 ## Tests
 
 ```
-tests/on_chain/smoke.mjs    the four cases, against real validators
-tests/on_chain/bounty.mjs   the consequence, against the register above
+pip install -r requirements-dev.txt && pytest tests/ -q     17 tests, no network, under a second
+python tools/mutate.py                                       15 defences removed in turn, each killed by a named test
+genvm-lint check contracts/faithful.py
+
+npm ci                                                       genlayer-js 1.1.8 and viem 2.56.3, from the lockfile
+node tests/on_chain/smoke.mjs                                the four cases, publishers, hashes and manifests, against real validators
+REGISTER=0x… node tests/on_chain/bounty.mjs                  the consequence, against the register above
 ```
+
+The offline suite covers the gate, the parsing, the prompt boundary, the
+bindings, the clock and two static rules over the source: every write records
+its sender, and everything interpolated into the prompt is a `_fence()` call or
+a name the contract owns. `tests/MUTATIONS.md` is generated, and the generator
+refuses to write it if any mutant survives.
 
 The four are the whole argument: a faithful translation certifies, a moved price
 is rejected and named, a half-translated document is caught by coverage rather
