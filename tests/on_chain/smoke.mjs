@@ -63,7 +63,10 @@ const CLUMSY =
   "ما ممکن است تغییر دهیم این شرایط با ۳۰ روزها اطلاع. درخواست‌های پشتیبانی هستند " +
   "پاسخ داده شده در داخل ۲ کسب‌وکار روزها.";
 
+import { createHash } from "node:crypto";
+const sha = (t) => createHash("sha256").update(t, "utf8").digest("hex");
 const acc = createAccount(generatePrivateKey());
+const stranger = createAccount(generatePrivateKey());
 await rpc("sim_fundAccount", { account_address: acc.address, amount: 900e18 });
 const c = createClient({ chain: studionet, account: acc });
 const rd = createClient({ chain: studionet });
@@ -135,7 +138,19 @@ ok("a translation too short to judge is refused",
    tiny.exec === "ERROR" && tiny.msg.includes("too short"), tiny.msg.slice(0, 60));
 
 // ---------- 1. faithful and fluent ----------
+// ---------- a publisher puts the source hash on the record before anything is judged ----------
+const SRC_HASH = sha(SOURCE);
+const pub = await send("publish", [SRC_HASH, "Acme Cloud terms of service"]);
+ok("a publisher registers the source hash under its own address", pub.j?.ok === true && String(pub.j?.publisher).toLowerCase() === acc.address.toLowerCase(), pub.msg.slice(0, 60));
+const badHash = await send("publish", ["not-a-hash", "x"]);
+ok("a source hash must be 64 hex characters", badHash.exec === "ERROR" && badHash.msg.includes("64 lowercase hex"));
+const cs = createClient({ chain: studionet, account: stranger });
+const impostor = await wait(await cs.writeContract({ address: A, functionName: "publish", args: [SRC_HASH, "mine now"] }));
+ok("another account cannot take a published hash over", impostor.exec === "ERROR" && impostor.msg.includes("not replaced"), impostor.msg.slice(0, 70));
+
 const good = await certify("good", "English", "Persian", SOURCE, GOOD);
+ok("the certificate carries the publisher of its source", String(good.stored?.publisher).toLowerCase() === acc.address.toLowerCase() && good.stored?.publisher_title === "Acme Cloud terms of service", `publisher ${good.stored?.publisher}`);
+ok("the certificate is bound to hashes of what was judged", good.stored?.source_hash === SRC_HASH && good.stored?.target_hash === sha(GOOD) && /^[0-9a-f]{64}$/.test(good.stored?.pair_hash || ""), `pair ${String(good.stored?.pair_hash).slice(0, 12)}…`);
 ok("a faithful, fluent translation is certified",
    good.stored?.verdict === "certified", `${tally(good)} → ${show(good)}`);
 ok("Persian numerals are not read as changed numbers",
@@ -188,6 +203,26 @@ ok("the gate is published, and says the model does not decide it",
 const dupe = await send("certify", ["good", "English", "German", SOURCE, GOOD]);
 ok("a certificate name cannot be reused",
    dupe.exec === "ERROR" && dupe.msg.includes("already exists"), dupe.msg.slice(0, 60));
+const samePair = await send("certify", ["good-again", "English", "Persian", SOURCE, GOOD]);
+ok("the same pair is never judged twice — a certificate is not asked for until the answer suits",
+   samePair.exec === "ERROR" && samePair.msg.includes("already certified as good"), samePair.msg.slice(0, 80));
+
+// ---------- the gate by identity, and documents in parts ----------
+ok("is_certified_hash gates by identity with no model and no consensus",
+   (await view("is_certified_hash", [good.stored.pair_hash])) === true && (await view("is_certified_hash", [bad.stored.pair_hash])) === false && (await view("is_certified_hash", ["f".repeat(64)])) === false);
+ok("certificate_hash finds the certificate by its pair hash", JSON.parse(String(await view("certificate_hash", [good.stored.pair_hash]))).name === "good");
+ok("publisher_of reads the record", JSON.parse(String(await view("publisher_of", [SRC_HASH]))).title === "Acme Cloud terms of service");
+const m1 = await send("manifest", ["terms-in-two-parts", JSON.stringify([good.stored.pair_hash, clumsy.stored.pair_hash])]);
+ok("a manifest of certified parts is a certified document", m1.j?.ok === true && m1.j?.certified_now === true && (await view("is_document_certified", [m1.j.manifest_hash])) === true, tally(m1));
+const m2 = await send("manifest", ["terms-with-a-bad-part", JSON.stringify([good.stored.pair_hash, bad.stored.pair_hash])]);
+ok("a manifest with a rejected part is not", m2.j?.ok === true && m2.j?.certified_now === false && (await view("is_document_certified", [m2.j.manifest_hash])) === false);
+const doc = JSON.parse(String(await view("document", [m2.j.manifest_hash])));
+ok("document() shows every part's live state", doc.complete === true && doc.parts.length === 2 && doc.parts[1].verdict === "rejected" && doc.certified === false);
+const m3 = await send("manifest", ["with-a-missing-part", JSON.stringify([good.stored.pair_hash, "e".repeat(64)])]);
+ok("a manifest may name a part not yet judged, and is not certified until it is", m3.j?.ok === true && m3.j?.certified_now === false);
+const m4 = await send("manifest", ["one-part", JSON.stringify([good.stored.pair_hash])]);
+ok("a manifest needs at least two parts", m4.exec === "ERROR" && m4.msg.includes("2 to"));
+console.log("manifest (two certified parts):", m1.j?.manifest_hash);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log("contract:", A);

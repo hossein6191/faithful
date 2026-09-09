@@ -8,7 +8,7 @@ consensus about. A contract that records a verdict and stops has produced an
 opinion; this one reads that verdict and moves money, and there is no path
 through it that pays for a translation the validators refused.
 
-A requester opens a bounty for one certificate name in one Faithful register,
+A requester opens a bounty for one pair hash — or one document manifest — in one Faithful register,
 funds it, and binds the translator's wallet. `settle()` then asks the register,
 through an ordinary synchronous view, what it already decided:
 
@@ -37,9 +37,14 @@ class _Payee:
         pass
 
 
+ZERO = "0x0000000000000000000000000000000000000000"
+
+
 class Bounty(gl.Contract):
     register: Address        # the Faithful register holding the certificate
-    name: str                # the certificate this bounty is for
+    kind: str                # "pair" — one certificate — or "document" — a manifest of parts
+    key: str                 # the pair hash or the manifest hash this bounty is for
+    publisher: Address       # if not ZERO, the source must have been published by this account
     requester: Address       # who funds it, and who is refunded on a rejection
     translator: Address      # who is paid on a certification
     bound: bool
@@ -47,9 +52,17 @@ class Bounty(gl.Contract):
     settled: bool
     outcome_json: str
 
-    def __init__(self, register: str, name: str) -> None:
+    def __init__(self, register: str, kind: str, key: str, publisher: str) -> None:
         self.register = Address(register)
-        self.name = name.strip()
+        kind = kind.strip().lower()
+        if kind not in ("pair", "document"):
+            raise gl.vm.UserError("[EXPECTED] a bounty is for a pair or a document")
+        key = key.strip().lower()
+        if len(key) != 64 or any(ch not in "0123456789abcdef" for ch in key):
+            raise gl.vm.UserError("[EXPECTED] the key is a 64-character hex hash")
+        self.kind = kind
+        self.key = key
+        self.publisher = Address(publisher.strip()) if publisher.strip() else Address(ZERO)
         self.requester = gl.message.sender_address
         self.translator = gl.message.sender_address
         self.bound = False
@@ -99,12 +112,34 @@ class Bounty(gl.Contract):
 
     # ------------------------------------------------------------ the verdict
     def _verdict(self) -> str:
-        """What the register says about this name: a verdict, or "" if none."""
+        """What the register says about this key: a verdict, or "" if nothing to settle yet."""
         register = gl.get_contract_at(self.register)
-        entry = json.loads(str(register.view().certificate(str(self.name))))
-        if "error" in entry:
+        if str(self.kind) == "pair":
+            entry = json.loads(str(register.view().certificate_hash(str(self.key))))
+            if "error" in entry:
+                return ""
+            return str(entry.get("verdict", ""))
+        doc = json.loads(str(register.view().document(str(self.key))))
+        if "error" in doc or not doc.get("complete"):
             return ""
-        return str(entry.get("verdict", ""))
+        return "certified" if doc.get("certified") else "rejected"
+
+    def _certified(self) -> bool:
+        """The gate, plus the publisher rule when the requester set one."""
+        register = gl.get_contract_at(self.register)
+        if str(self.kind) == "pair":
+            if not bool(register.view().is_certified_hash(str(self.key))):
+                return False
+            if self.publisher.as_hex != ZERO:
+                entry = json.loads(str(register.view().certificate_hash(str(self.key))))
+                return str(entry.get("publisher", "")).lower() == self.publisher.as_hex.lower()
+            return True
+        if not bool(register.view().is_document_certified(str(self.key))):
+            return False
+        if self.publisher.as_hex != ZERO:
+            doc = json.loads(str(register.view().document(str(self.key))))
+            return all(str(p.get("publisher", "")).lower() == self.publisher.as_hex.lower() for p in doc.get("parts", []))
+        return True
 
     @gl.public.write
     def settle(self) -> str:
@@ -122,11 +157,10 @@ class Bounty(gl.Contract):
         verdict = self._verdict()
         if verdict == "":
             raise gl.vm.UserError(
-                "[EXPECTED] the register has no certificate named " + str(self.name)
+                "[EXPECTED] the register holds nothing for this " + str(self.kind)
                 + " yet, so there is nothing to settle"
             )
-        register = gl.get_contract_at(self.register)
-        certified = bool(register.view().is_certified(str(self.name)))
+        certified = self._certified()
         if certified and not self.bound:
             raise gl.vm.UserError(
                 "[EXPECTED] the translation is certified but no translator is bound to be paid"
@@ -153,8 +187,7 @@ class Bounty(gl.Contract):
         verdict = self._verdict()
         if verdict == "":
             return "nobody: no certificate yet"
-        register = gl.get_contract_at(self.register)
-        if bool(register.view().is_certified(str(self.name))):
+        if self._certified():
             return "translator"
         return "requester"
 
@@ -162,7 +195,9 @@ class Bounty(gl.Contract):
     def status(self) -> str:
         return json.dumps({
             "register": self.register.as_hex,
-            "name": str(self.name),
+            "kind": str(self.kind),
+            "key": str(self.key),
+            "publisher": self.publisher.as_hex,
             "requester": self.requester.as_hex,
             "translator": self.translator.as_hex if self.bound else None,
             "pool": str(int(self.pool)),

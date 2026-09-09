@@ -402,6 +402,12 @@ details.newhere>div{padding:0 22px 22px}
     <p class="eyebrow">Certificates in this register</p>
     <div class="card scroll-x" style="margin-top:12px">
       <table id="ledger"><tbody><tr><td style="color:var(--fg-3);border:0">nothing loaded yet</td></tr></tbody></table>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="vhash" type="text" placeholder="verify by pair hash — 64 hex characters; click a hash in the table to copy it" style="flex:1 1 360px">
+        <button id="verify">is_certified_hash?</button>
+      </div>
+      <p id="verifySt" class="st mono" style="margin-top:8px"></p>
+      <p class="fine" style="margin-top:8px">A certificate is bound to what was judged, not to its name: <span class="mono">pair_hash = sha256("faithful-pair", source language, target language, sha256(source), sha256(translation))</span>. A publisher may put a source hash on the record first; certificates over that source then carry the publisher's address. A document judged in parts is a manifest of pair hashes, certified only when every part passed.</p>
     </div>
   </section>
 

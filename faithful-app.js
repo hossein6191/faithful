@@ -6,6 +6,7 @@ import { LANGUAGES, DISCORD, isSupported, search } from "./languages.js";
 const byLabel = (l) => LANGUAGES.find((x) => x.label === l) || null;
 
 const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const RPC = "https://studio.genlayer.com/api";
 const EXPLORER = "https://explorer-studio.genlayer.com";
 const CHAIN = { chainId: "0xf22f", chainName: "GenLayer Studio",
@@ -654,6 +655,7 @@ $("certify").onclick = async () => {
     if (!res.j?.verdict) { log("  ✗ " + String(res.msg).slice(0, 200), "bad"); $("certify").disabled = false; counts(); return; }
     log(`  → ${res.j.verdict} · fidelity ${res.j.fidelity} coverage ${res.j.coverage} fluency ${res.j.fluency}`,
         res.j.verdict === "rejected" ? "warn" : "ok");
+    if (res.j.pair_hash) log(`  pair hash ${res.j.pair_hash} — the certificate's identity: languages + sha256 of both texts`);
     if (res.j.defects?.length) log("    " + res.j.defects.join(", "), "warn");
     paintResult({ ...res.j, name });
     $("resultLink").innerHTML = link("/tx/" + tx, "this certification on the explorer") +
@@ -672,48 +674,97 @@ $("certify").onclick = async () => {
    yet" for a register with certificates in it, and a register that did not
    answer once was declared "not a Faithful register". Both are lies told
    confidently. Retry, and when it really will not answer, say that instead. */
-async function readOrRetry(address, fn, args = [], tries = 4) {
+/* Studio's RPC sometimes answers a read with "Contract not found" for an address the
+   explorer shows perfectly well, for a minute at a time. Reads therefore retry with a
+   growing pause — eight tries, about forty seconds in all — and only then give up. */
+async function readOrRetry(address, fn, args = [], tries = 8) {
   let last;
   for (let i = 0; i < tries; i++) {
     try { return { ok: true, value: await reader().readContract({ address, functionName: fn, args }) }; }
-    catch (e) { last = e; await new Promise((r) => setTimeout(r, 700 * (i + 1))); }
+    catch (e) { last = e; await new Promise((r) => setTimeout(r, Math.min(8000, 700 * (i + 1) * (i + 1) / 2 + 500))); }
   }
   return { ok: false, error: last };
 }
+
+/* A snapshot of the demo register, taken from the chain by tools/snapshot.mjs and shipped
+   with the site. It is shown only when the live read fails, and it says so; nothing on it
+   can be mistaken for a live read because every row also carries its explorer links. */
+let snapshot = null;
+async function loadSnapshot() {
+  if (snapshot !== null) return snapshot;
+  try { const r = await fetch("./data/snapshot.json?t=" + Date.now()); snapshot = r.ok ? await r.json() : false; }
+  catch (e) { snapshot = false; }
+  return snapshot;
+}
+const short = (h) => (h ? String(h).slice(0, 10) + "…" : "");
 
 async function renderLedger() {
   if (!reg) return;
   const body = $("ledger").querySelector("tbody");
   const got = await readOrRetry(reg, "names");
-  if (!got.ok) {
-    body.innerHTML = `<tr><td style="color:var(--warnbox-fg);border:0">Could not reach the network to read
-      this register. Nothing is wrong with it — press Load again.</td></tr>`;
-    return;
-  }
-  const names = JSON.parse(String(got.value));
-  if (!names.length) { body.innerHTML = `<tr><td style="color:var(--fg-3);border:0">this register is empty</td></tr>`; return; }
-  const rows = [`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th></tr>`];
-  for (const n of names.slice().reverse()) {
-    const one = await readOrRetry(reg, "certificate", [n]);
-    if (!one.ok) {
-      rows.push(`<tr><td class="mono">${n}</td><td colspan="6" style="color:var(--warnbox-fg)">could not be
-        read just now</td></tr>`);
-      continue;
+  let names, fromSnapshot = false, entries = {};
+  if (got.ok) names = JSON.parse(String(got.value));
+  else {
+    const snap = await loadSnapshot();
+    if (snap && String(snap.register).toLowerCase() === String(reg).toLowerCase()) {
+      names = snap.names; entries = snap.certificates || {}; fromSnapshot = true;
+      log("  live read failed after eight tries — showing the snapshot of this register taken " + snap.taken_at, "warn");
+    } else {
+      body.innerHTML = `<tr><td style="color:var(--warnbox-fg);border:0">Could not reach the network to read
+        this register after eight tries over forty seconds. Nothing is wrong with it — the explorer still
+        shows it — press Load again in a minute.</td></tr>`;
+      return;
     }
-    const e = JSON.parse(String(one.value));
+  }
+  if (!names.length) { body.innerHTML = `<tr><td style="color:var(--fg-3);border:0">this register is empty</td></tr>`; return; }
+  const rows = [];
+  if (fromSnapshot) rows.push(`<tr><td colspan="9" style="color:var(--warnbox-fg);border:0">Showing a snapshot taken from the chain on ${esc(snapshot.taken_at)}; the live read failed just now. Every row links to the explorer.</td></tr>`);
+  rows.push(`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th><th>pair hash</th><th>publisher</th></tr>`);
+  for (const n of names.slice().reverse()) {
+    let e = entries[n];
+    if (!e) {
+      const one = await readOrRetry(reg, "certificate", [n]);
+      if (!one.ok) { rows.push(`<tr><td class="mono">${esc(n)}</td><td colspan="8" style="color:var(--warnbox-fg)">could not be read just now</td></tr>`); continue; }
+      e = JSON.parse(String(one.value));
+    }
     const [colour, label] = BANNERS[e.verdict] || ["#94a3b8", e.verdict];
     rows.push(`<tr>
-      <td class="mono">${e.name}</td>
-      <td style="color:var(--fg-2)">${e.source_lang} → ${e.target_lang}</td>
-      <td><span style="color:${colour};font-weight:600">${label}</span></td>
+      <td class="mono">${esc(e.name)}</td>
+      <td style="color:var(--fg-2)">${esc(e.source_lang)} → ${esc(e.target_lang)}</td>
+      <td><span style="color:${colour};font-weight:600">${esc(label)}</span></td>
       <td class="mono" style="color:${scoreColour(e.fidelity)}">${e.fidelity}</td>
       <td class="mono" style="color:${scoreColour(e.coverage)}">${e.coverage}</td>
       <td class="mono" style="color:${scoreColour(e.fluency)}">${e.fluency}</td>
-      <td class="mono" style="color:var(--fg-3)">${(e.defects || []).join(", ") || "none"}</td>
+      <td class="mono" style="color:var(--fg-3)">${esc((e.defects || []).join(", ") || "none")}</td>
+      <td class="mono" title="${esc(e.pair_hash || "")}" style="cursor:copy" data-copy="${esc(e.pair_hash || "")}">${esc(short(e.pair_hash))}</td>
+      <td class="mono" title="${esc(e.publisher || "")}" style="color:var(--fg-3)">${e.publisher && !/^0x0{40}$/.test(e.publisher) ? esc(short(e.publisher)) + (e.publisher_title ? " · " + esc(e.publisher_title) : "") : "—"}</td>
     </tr>`);
   }
   body.innerHTML = rows.join("");
+  for (const td of body.querySelectorAll("[data-copy]")) td.onclick = () => { try { navigator.clipboard.writeText(td.dataset.copy); td.textContent = "copied"; setTimeout(() => { td.textContent = short(td.dataset.copy); }, 900); } catch (e) {} };
 }
+
+/* verify by identity: languages + the hashes of both texts, computed here, looked up there */
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function pairHash(sourceLang, targetLang, sourceText, targetText) {
+  const s = await sha256Hex(sourceText), t = await sha256Hex(targetText);
+  return sha256Hex("faithful-pair\n" + sourceLang + "\n" + targetLang + "\n" + s + "\n" + t);
+}
+if ($("verify")) $("verify").onclick = async () => {
+  if (!reg) { $("verifySt").textContent = "load a register first"; return; }
+  const h = $("vhash").value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(h)) { $("verifySt").textContent = "a pair hash is 64 hex characters"; return; }
+  $("verifySt").textContent = "reading …";
+  const valid = await readOrRetry(reg, "is_certified_hash", [h]);
+  const cert = await readOrRetry(reg, "certificate_hash", [h]);
+  if (!valid.ok || !cert.ok) { $("verifySt").textContent = "could not read just now — try again"; return; }
+  const e = JSON.parse(String(cert.value));
+  $("verifySt").innerHTML = e.error ? `<span class="warn">no certificate with that pair hash</span>`
+    : `is_certified_hash → <b>${valid.value}</b> · ${esc(e.name)} · ${esc(e.verdict)} · fidelity ${e.fidelity} coverage ${e.coverage} fluency ${e.fluency}${e.publisher && !/^0x0{40}$/.test(e.publisher) ? " · published by " + esc(short(e.publisher)) : ""}`;
+};
 
 /* The page fully supports the fifteen languages with their own GenLayer Discord
    channel, plus English as the source. Anything else is not blocked, because the

@@ -29,6 +29,10 @@ let pass = 0, fail = 0;
 const ok = (n, c, d = "") => { c ? pass++ : fail++; console.log(`${c ? "PASS" : "FAIL"}  ${n}${d ? "  — " + d : ""}`); };
 
 const REGISTER = process.env.REGISTER || "0x55ACAafdDbD6D62156e59c0C3DFb2Db2C9744e15";
+// the certificates the bounties are for, by name; their pair hashes are read from the register
+const CERT_OK = process.env.CERT_OK || "faithful-but-clumsy";
+const CERT_BAD = process.env.CERT_BAD || "numbers-moved";
+const MANIFEST = process.env.MANIFEST || "";        // a manifest hash whose parts all passed, for the document bounty
 const acc = createAccount(generatePrivateKey());
 await rpc("sim_fundAccount", { account_address: acc.address, amount: 900e18 });
 const c = createClient({ chain: studionet, account: acc });
@@ -62,8 +66,10 @@ const wait = async (tx) => {
   }
   return { msg: "TIMEOUT", exec: "" };
 };
-const deployFor = async (name) => {
-  const dh = await c.deployContract({ code, args: [REGISTER, name], leaderOnly: false });
+const pairHashOf = async (name) => JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [name] }))).pair_hash;
+const deployFor = async (name, kind = "pair", publisher = "") => {
+  const key = kind === "pair" ? await pairHashOf(name) : name;
+  const dh = await c.deployContract({ code, args: [REGISTER, kind, key, publisher], leaderOnly: false });
   const r = await c.waitForTransactionReceipt({ hash: dh, status: "ACCEPTED", retries: 40, interval: 4000 });
   return r?.data?.contract_address;
 };
@@ -75,7 +81,7 @@ console.log("register", REGISTER, "\n");
 
 // ---------- 1 · a certified-with-reservations translation is paid ----------
 const translator = privateKeyToAccount(generatePrivateKey()).address;
-const B1 = await deployFor("faithful-but-clumsy");
+const B1 = await deployFor(CERT_OK);
 console.log("bounty for faithful-but-clumsy at", B1);
 ok("would_pay reads the register's verdict with no model and no consensus",
    (await view(B1, "would_pay")) === "translator", String(await view(B1, "would_pay")));
@@ -95,7 +101,7 @@ ok("a bounty settles once", twice.exec === "ERROR" && twice.msg.includes("alread
 
 // ---------- 2 · a rejected translation refunds the requester ----------
 const loser = privateKeyToAccount(generatePrivateKey()).address;
-const B2 = await deployFor("numbers-moved");
+const B2 = await deployFor(CERT_BAD);
 console.log("\nbounty for numbers-moved at", B2);
 ok("would_pay says the requester gets it back", (await view(B2, "would_pay")) === "requester", String(await view(B2, "would_pay")));
 await send(B2, "bind", [loser]);
@@ -128,5 +134,18 @@ const late = await send(B1, "fund", [], 3n * GEN);
 ok("funding a settled bounty is refused *and refunded*, not swallowed",
    late.j?.ok === false && String(late.j?.reason || "").includes("returned"), late.j?.reason);
 ok("the refund is real", funderBefore - (await balance(acc.address)) < GEN, "net cost is gas only");
+
+// ---------- bound to a publisher, and to a document ----------
+const wrongPublisher = await deployFor(CERT_OK, "pair", loser);
+ok("a bounty that names a publisher pays nobody when the source was not published by it", (await view(wrongPublisher, "would_pay")) === "requester", String(await view(wrongPublisher, "would_pay")));
+const okCert = JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [CERT_OK] })));
+if (okCert.publisher && !/^0x0{40}$/.test(okCert.publisher)) {
+  const rightPublisher = await deployFor(CERT_OK, "pair", okCert.publisher);
+  ok("and pays the translator when the publisher matches", (await view(rightPublisher, "would_pay")) === "translator");
+} else console.log("(the register's certificate has no publisher; the matching-publisher check needs one)");
+if (MANIFEST) {
+  const D = await deployFor(MANIFEST, "document");
+  ok("a document bounty reads the manifest: every part passed → translator", (await view(D, "would_pay")) === "translator", String(await view(D, "would_pay")));
+} else console.log("(set MANIFEST=<hash> to also check the document bounty)");
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,0 +1,6 @@
+# The offline suite: `pip install -r requirements-dev.txt` then `pytest tests/ -q` — no network, no Studio.
+pytest==9.1.1
+# The linter the deployed bytes are checked with (`genvm-lint check contracts/faithful.py`):
+genvm-lint==0.11.0
+# Only for the on-chain scripts' Python siblings; not needed for the offline suite:
+genlayer-test==0.29.2
