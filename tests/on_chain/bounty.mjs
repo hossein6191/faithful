@@ -128,7 +128,7 @@ ok("would_pay says there is nothing to settle", String(await view(B3, "would_pay
 await send(B3, "fund", [], 5n * GEN);
 const s3 = await send(B3, "settle", []);
 ok("settle refuses while the register holds nothing under that hash",
-   s3.exec === "ERROR" && s3.msg.includes("no certificate named"), s3.msg.slice(0, 70));
+   s3.exec === "ERROR" && s3.msg.includes("holds nothing for this pair yet"), s3.msg.slice(0, 70));
 const st = JSON.parse(String(await view(B3, "status")));
 ok("the funds stay in the bounty for when it is", st.settled === false && st.pool === String(5n * GEN), `pool ${st.pool}`);
 
