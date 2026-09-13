@@ -67,7 +67,13 @@ import { createHash } from "node:crypto";
 const sha = (t) => createHash("sha256").update(t, "utf8").digest("hex");
 const acc = createAccount(generatePrivateKey());
 const stranger = createAccount(generatePrivateKey());
+/* DOMAIN is a host whose /.well-known/faithful.json the validators can fetch. BIND_KEY,
+   when set, is the private key of an address that file names, for the positive path. */
+const DOMAIN = process.env.DOMAIN || "faithful-one.vercel.app";
+const binder = process.env.BIND_KEY ? createAccount(process.env.BIND_KEY) : null;
 await rpc("sim_fundAccount", { account_address: acc.address, amount: 900e18 });
+await rpc("sim_fundAccount", { account_address: stranger.address, amount: 200e18 });
+if (binder) await rpc("sim_fundAccount", { account_address: binder.address, amount: 200e18 });
 const c = createClient({ chain: studionet, account: acc });
 const rd = createClient({ chain: studionet });
 
@@ -145,11 +151,35 @@ ok("a publisher registers the source hash under its own address", pub.j?.ok === 
 const badHash = await send("publish", ["not-a-hash", "x"]);
 ok("a source hash must be 64 hex characters", badHash.exec === "ERROR" && badHash.msg.includes("64 lowercase hex"));
 const cs = createClient({ chain: studionet, account: stranger });
-const impostor = await wait(await cs.writeContract({ address: A, functionName: "publish", args: [SRC_HASH, "mine now"] }));
-ok("another account cannot take a published hash over", impostor.exec === "ERROR" && impostor.msg.includes("not replaced"), impostor.msg.slice(0, 70));
+const second = await wait(await cs.writeContract({ address: A, functionName: "publish", args: [SRC_HASH, "mine too"] }));
+ok("another account may publish the same hash: nobody wins a race, nobody is in anybody's way", second.j?.ok === true && second.j?.publishers === 2, second.msg.slice(0, 70));
+const pubs = JSON.parse(String(await view("publishers_of", [SRC_HASH])));
+ok("publishers_of lists both, in order of arrival, and names nobody as authoritative",
+   pubs.length === 2 && pubs[0].publisher.toLowerCase() === acc.address.toLowerCase() && pubs[1].publisher.toLowerCase() === stranger.address.toLowerCase() && pubs[1].title === "mine too", JSON.stringify(pubs.map((p) => p.title)));
+ok("is_published_by answers for the address the consumer brings",
+   (await view("is_published_by", [acc.address, SRC_HASH])) === true && (await view("is_published_by", [stranger.address, SRC_HASH])) === true
+   && (await view("is_published_by", ["0x" + "1".repeat(40), SRC_HASH])) === false);
 
 const good = await certify("good", "English", "Persian", SOURCE, GOOD);
-ok("the certificate carries the publisher of its source", String(good.stored?.publisher).toLowerCase() === acc.address.toLowerCase() && good.stored?.publisher_title === "Acme Cloud terms of service", `publisher ${good.stored?.publisher}`);
+ok("the certificate lists the publishers of its source, live", Array.isArray(good.stored?.publishers) && good.stored.publishers.map((p) => p.toLowerCase()).includes(acc.address.toLowerCase()) && good.stored.publishers.length === 2, `publishers ${JSON.stringify(good.stored?.publishers)}`);
+
+// ---------- a host vouches for an address, checked by every validator ----------
+const badHost = await send("bind_domain", ["https://" + DOMAIN + "/x"]);
+ok("a domain must be a bare host; anything else is refused before any validator fetches", badHost.exec === "ERROR" && badHost.msg.includes("bare lowercase host"), badHost.msg.slice(0, 70));
+const notNamed = await send("bind_domain", [DOMAIN]);
+ok("a wallet the host's well-known file does not name is refused by the validators, with the reason",
+   notNamed.exec === "ERROR" && notNamed.msg.includes("does not name " + acc.address), `${tally(notNamed)} · ${notNamed.msg.slice(0, 110)}`);
+ok("and nothing is bound", (await view("is_bound", [acc.address, DOMAIN])) === false && JSON.parse(String(await view("domain_of", [acc.address]))).domain === "");
+if (binder) {
+  const cb = createClient({ chain: studionet, account: binder });
+  const bound = await wait(await cb.writeContract({ address: A, functionName: "bind_domain", args: [DOMAIN] }));
+  ok("a wallet the file names is bound: every validator fetched the document and agreed", bound.j?.ok === true && bound.j?.domain === DOMAIN, `${tally(bound)} · ${bound.msg.slice(0, 90)}`);
+  ok("is_bound and domain_of read it for free", (await view("is_bound", [binder.address, DOMAIN])) === true && (await view("is_bound", [binder.address, "other.example"])) === false
+     && JSON.parse(String(await view("domain_of", [binder.address]))).well_known === "https://" + DOMAIN + "/.well-known/faithful.json");
+  const pubB = await wait(await cb.writeContract({ address: A, functionName: "publish", args: [SRC_HASH, "the bound publisher's copy"] }));
+  const pubs2 = JSON.parse(String(await view("publishers_of", [SRC_HASH])));
+  ok("a publication by a bound publisher shows its host", pubB.j?.ok === true && pubs2.some((p) => p.publisher.toLowerCase() === binder.address.toLowerCase() && p.domain === DOMAIN));
+} else console.log("(set BIND_KEY to the key of an address " + DOMAIN + "/.well-known/faithful.json names, to also check the positive path)");
 ok("the certificate is bound to hashes of what was judged", good.stored?.source_hash === SRC_HASH && good.stored?.target_hash === sha(GOOD) && /^[0-9a-f]{64}$/.test(good.stored?.pair_hash || ""), `pair ${String(good.stored?.pair_hash).slice(0, 12)}…`);
 ok("a faithful, fluent translation is certified",
    good.stored?.verdict === "certified", `${tally(good)} → ${show(good)}`);
@@ -211,7 +241,7 @@ ok("the same pair is never judged twice — a certificate is not asked for until
 ok("is_certified_hash gates by identity with no model and no consensus",
    (await view("is_certified_hash", [good.stored.pair_hash])) === true && (await view("is_certified_hash", [bad.stored.pair_hash])) === false && (await view("is_certified_hash", ["f".repeat(64)])) === false);
 ok("certificate_hash finds the certificate by its pair hash", JSON.parse(String(await view("certificate_hash", [good.stored.pair_hash]))).name === "good");
-ok("publisher_of reads the record", JSON.parse(String(await view("publisher_of", [SRC_HASH]))).title === "Acme Cloud terms of service");
+ok("publication reads one publisher's row", JSON.parse(String(await view("publication", [acc.address, SRC_HASH]))).title === "Acme Cloud terms of service");
 const m1 = await send("manifest", ["terms-in-two-parts", JSON.stringify([good.stored.pair_hash, clumsy.stored.pair_hash])]);
 ok("a manifest of certified parts is a certified document", m1.j?.ok === true && m1.j?.certified_now === true && (await view("is_document_certified", [m1.j.manifest_hash])) === true, tally(m1));
 const m2 = await send("manifest", ["terms-with-a-bad-part", JSON.stringify([good.stored.pair_hash, bad.stored.pair_hash])]);

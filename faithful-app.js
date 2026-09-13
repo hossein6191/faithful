@@ -698,6 +698,29 @@ async function loadSnapshot() {
 }
 const short = (h) => (h ? String(h).slice(0, 10) + "…" : "");
 
+/* Publishers are a list per source hash, never one. Each one may be bound to a host by
+   the validators; the host is read once per address and remembered for the page. */
+const domainCache = {};
+async function domainOf(address) {
+  const key = String(address).toLowerCase();
+  if (key in domainCache) return domainCache[key];
+  const r = await readOrRetry(reg, "domain_of", [address], 3);
+  let d = "";
+  try { d = r.ok ? String(JSON.parse(String(r.value)).domain || "") : ""; } catch (e) {}
+  domainCache[key] = d;
+  return d;
+}
+async function publishersCell(list) {
+  const items = Array.isArray(list) ? list : [];
+  if (!items.length) return "\u2014";
+  const parts = [];
+  for (const p of items) {
+    const d = await domainOf(p);
+    parts.push(`<span title="${esc(p)}">${esc(short(p))}${d ? ` <span style="color:#63d69b" title="bound by the validators to ${esc(d)}">\u2713 ${esc(d)}</span>` : ""}</span>`);
+  }
+  return parts.join(", ");
+}
+
 async function renderLedger() {
   if (!reg) return;
   const body = $("ledger").querySelector("tbody");
@@ -719,7 +742,7 @@ async function renderLedger() {
   if (!names.length) { body.innerHTML = `<tr><td style="color:var(--fg-3);border:0">this register is empty</td></tr>`; return; }
   const rows = [];
   if (fromSnapshot) rows.push(`<tr><td colspan="9" style="color:var(--warnbox-fg);border:0">Showing a snapshot taken from the chain on ${esc(snapshot.taken_at)}; the live read failed just now. Every row links to the explorer.</td></tr>`);
-  rows.push(`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th><th>pair hash</th><th>publisher</th></tr>`);
+  rows.push(`<tr><th>name</th><th>pair</th><th>verdict</th><th>fid</th><th>cov</th><th>flu</th><th>defects</th><th>pair hash</th><th>publishers</th></tr>`);
   for (const n of names.slice().reverse()) {
     let e = entries[n];
     if (!e) {
@@ -737,7 +760,7 @@ async function renderLedger() {
       <td class="mono" style="color:${scoreColour(e.fluency)}">${e.fluency}</td>
       <td class="mono" style="color:var(--fg-3)">${esc((e.defects || []).join(", ") || "none")}</td>
       <td class="mono" title="${esc(e.pair_hash || "")}" style="cursor:copy" data-copy="${esc(e.pair_hash || "")}">${esc(short(e.pair_hash))}</td>
-      <td class="mono" title="${esc(e.publisher || "")}" style="color:var(--fg-3)">${e.publisher && !/^0x0{40}$/.test(e.publisher) ? esc(short(e.publisher)) + (e.publisher_title ? " · " + esc(e.publisher_title) : "") : "—"}</td>
+      <td class="mono" style="color:var(--fg-3)">${fromSnapshot ? esc((e.publishers || []).map(short).join(", ") || "\u2014") : await publishersCell(e.publishers)}</td>
     </tr>`);
   }
   body.innerHTML = rows.join("");
@@ -763,7 +786,59 @@ if ($("verify")) $("verify").onclick = async () => {
   if (!valid.ok || !cert.ok) { $("verifySt").textContent = "could not read just now — try again"; return; }
   const e = JSON.parse(String(cert.value));
   $("verifySt").innerHTML = e.error ? `<span class="warn">no certificate with that pair hash</span>`
-    : `is_certified_hash → <b>${valid.value}</b> · ${esc(e.name)} · ${esc(e.verdict)} · fidelity ${e.fidelity} coverage ${e.coverage} fluency ${e.fluency}${e.publisher && !/^0x0{40}$/.test(e.publisher) ? " · published by " + esc(short(e.publisher)) : ""}`;
+    : `is_certified_hash → <b>${valid.value}</b> · ${esc(e.name)} · ${esc(e.verdict)} · fidelity ${e.fidelity} coverage ${e.coverage} fluency ${e.fluency}${(e.publishers || []).length ? " · publishers: " + e.publishers.map(short).map(esc).join(", ") : " · no publisher has claimed this source"}`;
+};
+
+/* ------------------------------------------------------- publishers and hosts */
+/* publish() is a wallet's assertion under its own key; bind_domain() is agreed by the
+   validators, who each fetch the host's well-known document. Both are signed by the
+   visitor's own wallet, and a refusal from the validators is shown with its reason. */
+if ($("pubText")) $("pubText").addEventListener("input", async () => {
+  const t = $("pubText").value;
+  $("pubHash").value = t.trim() ? await sha256Hex(t.trim()) : "";
+});
+async function signCall(fn, args, label, st) {
+  if (!reg) { st.textContent = "load a register first"; return null; }
+  if (!account) { st.textContent = "connect your wallet first"; return null; }
+  st.textContent = "confirm in wallet …";
+  try {
+    log(`▶ ${label} … confirm in wallet`);
+    const c = await client();
+    const tx = await c.writeContract({ address: reg, functionName: fn, args });
+    log("  tx " + tx + " · " + link("/tx/" + tx, "explorer"));
+    st.innerHTML = link("/tx/" + tx, "follow it on the explorer");
+    const res = await wait(tx, label);
+    if (!res) { st.textContent = "did not finish; try again"; return null; }
+    if (res.split) { st.textContent = "the validators did not agree, nothing was stored; try again"; return null; }
+    if (!res.j || res.j.ok === false) { st.innerHTML = `<span class="warn">${esc(String(res.msg).slice(0, 220))}</span>`; log("  ✗ " + String(res.msg).slice(0, 200), "warn"); return null; }
+    return res;
+  } catch (e) { st.textContent = String(e.message || e).slice(0, 160); log("  ✗ " + (e.message || e), "bad"); return null; }
+}
+if ($("publish")) $("publish").onclick = async () => {
+  const h = $("pubHash").value.trim().toLowerCase(), title = $("pubTitle").value.trim();
+  if (!/^[0-9a-f]{64}$/.test(h)) { $("pubSt").textContent = "a source hash is 64 hex characters"; return; }
+  if (!title) { $("pubSt").textContent = "give it a title"; return; }
+  const res = await signCall("publish", [h, title], "publishing " + short(h) + " under " + short(account), $("pubSt"));
+  if (res) { $("pubSt").textContent = `published: ${res.j.publisher} is now one of ${res.j.publishers} publisher(s) of ${short(h)}`; log("  ✓ " + $("pubSt").textContent, "ok"); await renderLedger(); }
+};
+if ($("bindDomain")) $("bindDomain").onclick = async () => {
+  const host = $("bindHost").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!host) { $("pubSt").textContent = "name a host"; return; }
+  const res = await signCall("bind_domain", [host], "binding " + short(account) + " to " + host + " (every validator fetches " + host + "/.well-known/faithful.json)", $("pubSt"));
+  if (res) { delete domainCache[String(account).toLowerCase()]; $("pubSt").textContent = `bound: ${res.j.publisher} is named by ${res.j.checked}`; log("  ✓ " + $("pubSt").textContent, "ok"); await renderLedger(); }
+};
+if ($("lookup")) $("lookup").onclick = async () => {
+  if (!reg) { $("lookSt").textContent = "load a register first"; return; }
+  const a = $("lookAddr").value.trim(), h = $("lookHash").value.trim().toLowerCase();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { $("lookSt").textContent = "a publisher address is 0x and 40 hex characters"; return; }
+  $("lookSt").textContent = "reading …";
+  const d = await readOrRetry(reg, "domain_of", [a]);
+  let line = d.ok ? (JSON.parse(String(d.value)).domain ? `domain_of → ${esc(JSON.parse(String(d.value)).domain)} (checked by the validators)` : "domain_of → none") : "could not read just now";
+  if (/^[0-9a-f]{64}$/.test(h)) {
+    const p = await readOrRetry(reg, "is_published_by", [a, h]);
+    line += p.ok ? ` · is_published_by → <b>${p.value}</b>` : " · is_published_by could not be read";
+  }
+  $("lookSt").innerHTML = line;
 };
 
 /* The page fully supports the fifteen languages with their own GenLayer Discord

@@ -1,4 +1,4 @@
-# v0.2.16
+# v0.3.0
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 """Faithful: a translation is certified only when it carries the same commitments.
@@ -47,8 +47,10 @@ from dataclasses import dataclass
 from genlayer import *
 
 
-ERROR_EXPECTED = "[EXPECTED]"   # a rule of this contract — deterministic, must match
-ERROR_MODEL = "[MODEL]"         # the model returned something unusable — never agree
+ERROR_EXPECTED = "[EXPECTED]"   # a rule of this contract: deterministic, must match
+ERROR_MODEL = "[MODEL]"         # the model returned something unusable: never agree
+ERROR_EXTERNAL = "[EXTERNAL]"   # a host answered 4xx: deterministic, must match
+ERROR_TRANSIENT = "[TRANSIENT]" # network or 5xx: agree only if both saw it
 
 MAX_TEXT_CHARS = 4000           # each side; a 60k prompt crashes GenVM, 12k is safe
 MIN_TEXT_CHARS = 20
@@ -69,6 +71,10 @@ TOL_FLUENCY = 20
 
 MAX_PARTS = 50                  # parts in one document manifest
 MAX_TITLE_CHARS = 120
+MAX_PUBLISHERS = 20             # accounts that may publish the same source hash
+MAX_DOMAIN_CHARS = 253
+MAX_BODY_CHARS = 20000          # of a well-known document, read no further
+WELL_KNOWN = "/.well-known/faithful.json"
 HASH_CHARS = "0123456789abcdef"
 ZERO = "0x0000000000000000000000000000000000000000"
 
@@ -189,6 +195,69 @@ def _manifest_hash(parts: list) -> str:
 
 def _valid_hash(value: str) -> bool:
     return len(value) == 64 and all(ch in HASH_CHARS for ch in value)
+
+
+def _pub_key(publisher_hex: str, source_hash: str) -> str:
+    """One publication: this account, this source. Two accounts publishing the
+    same hash are two rows, and neither is in the other's way."""
+    return publisher_hex.lower() + "|" + source_hash
+
+
+def _valid_domain(domain: str) -> bool:
+    """A bare lowercase host: labels of letters, digits and hyphens joined by dots.
+    No scheme, no path, no port, so the well-known URL is the contract's to build."""
+    if not domain or len(domain) > MAX_DOMAIN_CHARS or "." not in domain:
+        return False
+    if domain != domain.lower():
+        return False
+    for label in domain.split("."):
+        if not label or label.startswith("-") or label.endswith("-"):
+            return False
+        for ch in label:
+            if not (ch == "-" or (ch.isascii() and ch.isalnum())):
+                return False
+    return True
+
+
+def _well_known_url(domain: str) -> str:
+    return "https://" + domain + WELL_KNOWN
+
+
+def _names_publisher(body: typing.Any, publisher_hex: str) -> bool:
+    """Whether a well-known document names this address.
+
+    Only the `publishers` list is read and only an exact address matches, case
+    aside. Anything else in the file, and any file that is not JSON, is a no.
+    """
+    text = body.decode("utf-8", "replace") if isinstance(body, (bytes, bytearray)) else str(body)
+    try:
+        data = json.loads(text[:MAX_BODY_CHARS])
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    listed = data.get("publishers")
+    if not isinstance(listed, list):
+        return False
+    wanted = publisher_hex.lower()
+    return any(isinstance(item, str) and item.strip().lower() == wanted for item in listed)
+
+
+def _handle_leader_error(leaders_res: typing.Any, leader_fn: typing.Callable) -> bool:
+    """A leader that failed is agreed with only when the failure is one every node sees alike."""
+    leader_msg = str(getattr(leaders_res, "message", ""))
+    try:
+        leader_fn()
+        return False
+    except gl.vm.UserError as err:
+        mine = str(getattr(err, "message", err))
+        if mine.startswith(ERROR_EXPECTED) or mine.startswith(ERROR_EXTERNAL):
+            return mine == leader_msg
+        if mine.startswith(ERROR_TRANSIENT) and leader_msg.startswith(ERROR_TRANSIENT):
+            return True
+        return False
+    except Exception:
+        return False
 
 
 def _task(source_name: str, target_name: str, source_text: str, target_text: str) -> str:
@@ -348,7 +417,26 @@ class Certificate:
     source_hash: str        # sha256 of the source text as stored
     target_hash: str        # sha256 of the translation as stored
     pair_hash: str          # the certificate's identity: languages + both hashes
-    publisher: Address      # who published the source hash before this was judged; ZERO if nobody
+
+
+@allow_storage
+@dataclass
+class Publication:
+    """One account saying "this source hash is mine", under its own address."""
+
+    publisher: Address
+    source_hash: str
+    title: str
+    at: u64
+
+
+@allow_storage
+@dataclass
+class Domain:
+    """A publisher's host, checked by every validator against the well-known document."""
+
+    domain: str
+    at: u64
 
 
 @allow_storage
@@ -368,8 +456,9 @@ class Faithful(gl.Contract):
     certificates: TreeMap[str, Certificate]
     names_in_order: DynArray[str]
     by_hash: TreeMap[str, str]              # pair_hash -> name
-    publishers: TreeMap[str, Address]       # source_hash -> the account that published it first
-    publisher_titles: TreeMap[str, str]     # source_hash -> the title it was published under
+    publications: TreeMap[str, Publication] # publisher|source_hash -> the publication
+    publishers_by_hash: TreeMap[str, str]   # source_hash -> JSON list of publisher addresses, in order of arrival
+    domains: TreeMap[str, Domain]           # publisher -> the host that names it in /.well-known/faithful.json
     manifests: TreeMap[str, Manifest]       # manifest_hash -> manifest
     manifest_names: TreeMap[str, str]       # name -> manifest_hash
     manifest_hashes: DynArray[str]
@@ -383,12 +472,13 @@ class Faithful(gl.Contract):
     def publish(self, source_hash: str, title: str) -> str:
         """A publisher puts the hash of a source on the record, under its own address.
 
-        A certificate judged later over a source with this hash carries the
-        publisher's address, so a consumer can ask not only "is this
-        translation faithful to these bytes" but "and are these bytes the
-        publisher's". First publisher wins; a different account cannot take a
-        hash over. Only the hash goes on the record here — the text itself is
-        stored when it is judged.
+        Nothing is first-come here. A publication is a row keyed by the
+        publisher's own address and the hash, so two accounts may publish the
+        same hash and neither can take the other's row or block it. A row says
+        only "this address claims these bytes"; it is a wallet's assertion, and
+        the contract never picks one publisher as the authoritative one. A
+        consumer names the publisher it trusts (see `is_published_by`), and may
+        ask for a stronger word from `bind_domain`.
         """
         source_hash = source_hash.strip().lower()
         title = title.strip()
@@ -397,11 +487,64 @@ class Faithful(gl.Contract):
         if not title or len(title) > MAX_TITLE_CHARS:
             _fail("a title is 1 to " + str(MAX_TITLE_CHARS) + " characters")
         sender = gl.message.sender_address
-        if source_hash in self.publishers and self.publishers[source_hash] != sender:
-            _fail("that source hash was published by another account; a publisher is not replaced")
-        self.publishers[source_hash] = sender
-        self.publisher_titles[source_hash] = title
-        return json.dumps({"ok": True, "source_hash": source_hash, "publisher": _hex(sender), "title": title})
+        sender_hex = _hex(sender)
+        listed = json.loads(str(self.publishers_by_hash[source_hash])) if source_hash in self.publishers_by_hash else []
+        if sender_hex.lower() not in listed:
+            if len(listed) >= MAX_PUBLISHERS:
+                _fail("this source hash already has " + str(MAX_PUBLISHERS) + " publishers")
+            listed.append(sender_hex.lower())
+            self.publishers_by_hash[source_hash] = json.dumps(listed)
+        self.publications[_pub_key(sender_hex, source_hash)] = Publication(
+            publisher=sender, source_hash=source_hash, title=title, at=u64(max(0, _instant_seconds(_now()))),
+        )
+        return json.dumps({"ok": True, "source_hash": source_hash, "publisher": sender_hex, "title": title,
+                           "publishers": len(listed)})
+
+    @gl.public.write
+    def bind_domain(self, domain: str) -> str:
+        """Bind the sender's address to a host it controls. This costs consensus.
+
+        Every validator fetches https://<domain>/.well-known/faithful.json itself
+        and reads whether the `publishers` list names the sender. Only a yes
+        binds; a no is a stored refusal with the reason. That turns "I am the
+        publisher" from a wallet's assertion into a fact several nodes checked
+        against something only the host's owner can put there.
+        """
+        domain = domain.strip().lower()
+        if not _valid_domain(domain):
+            _fail("a domain is a bare lowercase host such as example.org: no scheme, no path, no port")
+        sender = gl.message.sender_address
+        sender_hex = _hex(sender)
+        url = _well_known_url(domain)
+
+        def leader_fn() -> typing.Any:
+            res = gl.nondet.web.get(url)
+            status = int(res.status)
+            if status == 404:
+                return {"bound": "no", "why": "no document at " + WELL_KNOWN}
+            if 400 <= status < 500:
+                raise gl.vm.UserError(ERROR_EXTERNAL + " " + domain + " answered " + str(status))
+            if status >= 500 or status < 200:
+                raise gl.vm.UserError(ERROR_TRANSIENT + " " + domain + " answered " + str(status))
+            if _names_publisher(res.body, sender_hex):
+                return {"bound": "yes", "why": ""}
+            return {"bound": "no", "why": "the document does not name " + sender_hex}
+
+        def validator_fn(leaders_res: gl.vm.Result) -> bool:
+            if not isinstance(leaders_res, gl.vm.Return):
+                return _handle_leader_error(leaders_res, leader_fn)
+            theirs = leaders_res.calldata
+            if not isinstance(theirs, dict):
+                return False
+            mine = leader_fn()
+            # One word must match: bound or not. The reason is never compared.
+            return str(theirs.get("bound")) == str(mine["bound"])
+
+        answer = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+        if str(answer.get("bound")) != "yes":
+            _fail(domain + " does not name " + sender_hex + " in " + WELL_KNOWN + ": " + str(answer.get("why", "")))
+        self.domains[sender_hex.lower()] = Domain(domain=domain, at=u64(max(0, _instant_seconds(_now()))))
+        return json.dumps({"ok": True, "publisher": sender_hex, "domain": domain, "checked": url})
 
     @gl.public.write
     def manifest(self, name: str, parts_json: str) -> str:
@@ -568,7 +711,6 @@ class Faithful(gl.Contract):
             source_hash=source_hash,
             target_hash=target_hash,
             pair_hash=pair_hash,
-            publisher=self.publishers[source_hash] if source_hash in self.publishers else Address(ZERO),
         )
         self.names_in_order.append(name)
         self.by_hash[pair_hash] = name
@@ -578,7 +720,7 @@ class Faithful(gl.Contract):
             "pair_hash": pair_hash,
             "source_hash": source_hash,
             "target_hash": target_hash,
-            "publisher": _hex(self.certificates[name].publisher),
+            "publishers": self._publishers_of(source_hash),
             "verdict": str(judged.get("verdict", REJECTED)),
             "fidelity": int(judged.get("fidelity", 0)),
             "coverage": int(judged.get("coverage", 0)),
@@ -620,8 +762,7 @@ class Faithful(gl.Contract):
             "source_hash": str(entry.source_hash),
             "target_hash": str(entry.target_hash),
             "pair_hash": str(entry.pair_hash),
-            "publisher": _hex(entry.publisher),
-            "publisher_title": str(self.publisher_titles[str(entry.source_hash)]) if str(entry.source_hash) in self.publisher_titles else "",
+            "publishers": self._publishers_of(str(entry.source_hash)),
         })
 
     @gl.public.view
@@ -640,12 +781,52 @@ class Faithful(gl.Contract):
         return self.certificate(str(self.by_hash[pair_hash]))
 
     @gl.public.view
-    def publisher_of(self, source_hash: str) -> str:
+    def is_published_by(self, publisher: str, source_hash: str) -> bool:
+        """The provenance question a consumer actually has: did THIS address publish these bytes.
+
+        The consumer brings the address it trusts; the register never picks one.
+        """
+        return _pub_key(publisher.strip(), source_hash.strip().lower()) in self.publications
+
+    @gl.public.view
+    def publication(self, publisher: str, source_hash: str) -> str:
+        key = _pub_key(publisher.strip(), source_hash.strip().lower())
+        if key not in self.publications:
+            return json.dumps({"publisher": publisher.strip(), "source_hash": source_hash.strip().lower(), "published": False})
+        p = self.publications[key]
+        return json.dumps({"publisher": _hex(p.publisher), "source_hash": str(p.source_hash), "published": True,
+                           "title": str(p.title), "at": int(p.at), "domain": self._domain_of(_hex(p.publisher))})
+
+    @gl.public.view
+    def publishers_of(self, source_hash: str) -> str:
+        """Everyone who published this hash, in order of arrival. A list, on purpose:
+        the order says who came first and nothing more."""
         source_hash = source_hash.strip().lower()
-        if source_hash not in self.publishers:
-            return json.dumps({"source_hash": source_hash, "publisher": ZERO, "title": ""})
-        return json.dumps({"source_hash": source_hash, "publisher": _hex(self.publishers[source_hash]),
-                           "title": str(self.publisher_titles[source_hash]) if source_hash in self.publisher_titles else ""})
+        rows = []
+        for hex_lower in self._publishers_of(source_hash):
+            p = self.publications[_pub_key(hex_lower, source_hash)]
+            rows.append({"publisher": _hex(p.publisher), "title": str(p.title), "at": int(p.at), "domain": self._domain_of(hex_lower)})
+        return json.dumps(rows)
+
+    @gl.public.view
+    def domain_of(self, publisher: str) -> str:
+        publisher = publisher.strip()
+        d = self._domain_of(publisher)
+        return json.dumps({"publisher": publisher, "domain": d,
+                           "at": int(self.domains[publisher.lower()].at) if d else 0,
+                           "well_known": _well_known_url(d) if d else ""})
+
+    @gl.public.view
+    def is_bound(self, publisher: str, domain: str) -> bool:
+        """True when validators checked that this host names this address."""
+        return bool(domain.strip()) and self._domain_of(publisher.strip()) == domain.strip().lower()
+
+    def _publishers_of(self, source_hash: str) -> list:
+        return json.loads(str(self.publishers_by_hash[source_hash])) if source_hash in self.publishers_by_hash else []
+
+    def _domain_of(self, publisher_hex: str) -> str:
+        key = publisher_hex.lower()
+        return str(self.domains[key].domain) if key in self.domains else ""
 
     @gl.public.view
     def document(self, manifest_hash: str) -> str:
@@ -661,9 +842,10 @@ class Faithful(gl.Contract):
                 name = str(self.by_hash[part])
                 entry = self.certificates[name]
                 rows.append({"pair_hash": part, "name": name, "verdict": str(entry.verdict),
-                             "certified": str(entry.verdict) in (CERTIFIED, RESERVED), "publisher": _hex(entry.publisher)})
+                             "certified": str(entry.verdict) in (CERTIFIED, RESERVED),
+                             "source_hash": str(entry.source_hash), "publishers": self._publishers_of(str(entry.source_hash))})
             else:
-                rows.append({"pair_hash": part, "name": None, "verdict": None, "certified": False, "publisher": ZERO})
+                rows.append({"pair_hash": part, "name": None, "verdict": None, "certified": False, "source_hash": None, "publishers": []})
         return json.dumps({"name": str(m.name), "manifest_hash": manifest_hash, "parts": rows,
                            "complete": all(r["name"] is not None for r in rows),
                            "certified": self._document_certified(parts),
@@ -716,7 +898,11 @@ class Faithful(gl.Contract):
         return json.dumps({
             "binding": {
                 "certificate": "identified by pair_hash = sha256 of languages + sha256(source) + sha256(translation); the same pair is never judged twice",
-                "publisher": "an account may publish a source hash first; certificates over that source carry its address",
+                "publisher": "any account may publish a source hash under its own address, and several may publish the same hash; "
+                             "a row is that wallet's assertion, and the register never names one publisher as authoritative: "
+                             "a consumer asks is_published_by(the address it trusts, source_hash)",
+                "domain": "bind_domain(host) is agreed by validators who each fetch https://host" + WELL_KNOWN
+                          + " and find the sender in its publishers list; is_bound(publisher, host) reads it for free",
                 "document": "a manifest is an ordered list of pair hashes; is_document_certified is true only when every part passed",
                 "untrusted": "the source and the translation are fenced ( < and > replaced ) between delimiter lines the contract writes",
             },

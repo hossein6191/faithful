@@ -74,9 +74,10 @@ const pairHashOf = async (name) => {
   const e = JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [name] })));
   return e.pair_hash || createHash("sha256").update("faithful-pair\nnot-submitted\n" + name, "utf8").digest("hex");
 };
-const deployFor = async (name, kind = "pair", publisher = "") => {
+const DOMAIN = process.env.DOMAIN || "faithful-one.vercel.app";
+const deployFor = async (name, kind = "pair", publisher = "", domain = "") => {
   const key = kind === "pair" ? await pairHashOf(name) : name;
-  const dh = await c.deployContract({ code, args: [REGISTER, kind, key, publisher], leaderOnly: false });
+  const dh = await c.deployContract({ code, args: [REGISTER, kind, key, publisher, domain], leaderOnly: false });
   const r = await c.waitForTransactionReceipt({ hash: dh, status: "ACCEPTED", retries: 40, interval: 4000 });
   return r?.data?.contract_address;
 };
@@ -146,10 +147,17 @@ ok("the refund is real", funderBefore - (await settledBack(acc.address, funderBe
 const wrongPublisher = await deployFor(CERT_OK, "pair", loser);
 ok("a bounty that names a publisher pays nobody when the source was not published by it", (await view(wrongPublisher, "would_pay")) === "requester", String(await view(wrongPublisher, "would_pay")));
 const okCert = JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [CERT_OK] })));
-if (okCert.publisher && !/^0x0{40}$/.test(okCert.publisher)) {
-  const rightPublisher = await deployFor(CERT_OK, "pair", okCert.publisher);
-  ok("and pays the translator when the publisher matches", (await view(rightPublisher, "would_pay")) === "translator");
-} else console.log("(the register's certificate has no publisher; the matching-publisher check needs one)");
+const firstPublisher = (okCert.publishers || [])[0];
+if (firstPublisher) {
+  const rightPublisher = await deployFor(CERT_OK, "pair", firstPublisher);
+  ok("and pays the translator when the named publisher did publish the source", (await view(rightPublisher, "would_pay")) === "translator");
+  const isBound = await rd.readContract({ address: REGISTER, functionName: "is_bound", args: [firstPublisher, DOMAIN] });
+  const withHost = await deployFor(CERT_OK, "pair", firstPublisher, DOMAIN);
+  ok(`a bounty that also requires the host ${DOMAIN} pays ${isBound ? "the translator, the publisher being bound to it" : "nobody but the requester while the publisher is not bound to it"}`,
+     (await view(withHost, "would_pay")) === (isBound ? "translator" : "requester"), `is_bound ${isBound}`);
+  const otherHost = await deployFor(CERT_OK, "pair", firstPublisher, "other.example");
+  ok("a bounty requiring a host the publisher is not bound to pays nobody but the requester", (await view(otherHost, "would_pay")) === "requester");
+} else console.log("(the register's certificate has no publisher; the matching-publisher checks need one)");
 if (MANIFEST) {
   const D = await deployFor(MANIFEST, "document");
   ok("a document bounty reads the manifest: every part passed → translator", (await view(D, "would_pay")) === "translator", String(await view(D, "would_pay")));

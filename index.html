@@ -407,7 +407,31 @@ details.newhere>div{padding:0 22px 22px}
         <button id="verify">is_certified_hash?</button>
       </div>
       <p id="verifySt" class="st mono" style="margin-top:8px"></p>
-      <p class="fine" style="margin-top:8px">A certificate is bound to what was judged, not to its name: <span class="mono">pair_hash = sha256("faithful-pair", source language, target language, sha256(source), sha256(translation))</span>. A publisher may put a source hash on the record first; certificates over that source then carry the publisher's address. A document judged in parts is a manifest of pair hashes, certified only when every part passed.</p>
+      <p class="fine" style="margin-top:8px">A certificate is bound to what was judged, not to its name: <span class="mono">pair_hash = sha256("faithful-pair", source language, target language, sha256(source), sha256(translation))</span>. A document judged in parts is a manifest of pair hashes, certified only when every part passed. Publishers are listed per source hash, never chosen: see below.</p>
+    </div>
+  </section>
+
+  <section style="margin-top:36px">
+    <p class="eyebrow">Publishers and hosts</p>
+    <div class="card" style="margin-top:12px">
+      <p class="fine" style="margin:0 0 12px">A publication is a wallet saying "these bytes are mine", under its own address. Any number of accounts may say it about the same hash, nobody wins a race, and the register never names one of them as the authoritative one: whoever relies on a certificate brings the address it trusts and asks <span class="mono">is_published_by(address, source_hash)</span>. A publisher can go further and bind its address to a host: every validator fetches <span class="mono">https://host/.well-known/faithful.json</span> itself, and only a file that names the address binds. This site vouches for the author's wallet in <a href="/.well-known/faithful.json" target="_blank" rel="noopener" class="mono">/.well-known/faithful.json</a>; any other wallet that tries to bind this host is refused by the validators.</p>
+      <textarea id="pubText" rows="2" dir="auto" spellcheck="false" placeholder="paste a source text and its sha256 appears below; or type a hash directly"></textarea>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input id="pubHash" type="text" placeholder="source hash: 64 hex characters" style="flex:1 1 340px">
+        <input id="pubTitle" type="text" placeholder="title" style="flex:1 1 160px">
+        <button id="publish" class="btn">Publish under my address</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input id="bindHost" type="text" placeholder="a host you control, e.g. example.org; it must serve /.well-known/faithful.json naming your address" style="flex:1 1 400px">
+        <button id="bindDomain" class="btn">Bind my address to this host</button>
+      </div>
+      <p id="pubSt" class="st mono" style="margin-top:8px"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+        <input id="lookAddr" type="text" placeholder="a publisher address" style="flex:1 1 300px">
+        <input id="lookHash" type="text" placeholder="a source hash, optional" style="flex:1 1 300px">
+        <button id="lookup">is_published_by? domain_of?</button>
+      </div>
+      <p id="lookSt" class="st mono" style="margin-top:8px"></p>
     </div>
   </section>
 

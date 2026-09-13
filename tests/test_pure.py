@@ -85,7 +85,7 @@ def _as(sender="0xSUBMITTER", at="2026-09-09T10:00:00Z"):
 
 def _contract():
     c = ff.Faithful.__new__(ff.Faithful)
-    c.certificates = {}; c.names_in_order = []; c.by_hash = {}; c.publishers = {}; c.publisher_titles = {}
+    c.certificates = {}; c.names_in_order = []; c.by_hash = {}; c.publications = {}; c.publishers_by_hash = {}; c.domains = {}
     c.manifests = {}; c.manifest_names = {}; c.manifest_hashes = []
     _as()
     return c
@@ -140,7 +140,7 @@ class TestBindings:
         c = _contract(); _judged()
         out = json.loads(c.certify("good", "English", "Spanish", SRC_TEXT, GOOD))
         assert out["verdict"] == ff.CERTIFIED and out["pair_hash"] == ff._pair_hash("English", "Spanish", ff._sha(SRC_TEXT), ff._sha(GOOD))
-        assert c.by_hash[out["pair_hash"]] == "good" and c.certificates["good"].publisher == ff.ZERO
+        assert c.by_hash[out["pair_hash"]] == "good" and out["publishers"] == []
         assert c.is_certified_hash(out["pair_hash"]) is True and json.loads(c.certificate_hash(out["pair_hash"]))["name"] == "good"
         with pytest.raises(ff.gl.vm.UserError) as e:
             c.certify("good-again", "English", "Spanish", SRC_TEXT, GOOD)
@@ -152,22 +152,39 @@ class TestBindings:
         out = json.loads(c.certify("moved", "English", "Spanish", SRC_TEXT, MOVED))
         assert out["verdict"] == ff.REJECTED and c.is_certified("moved") is False and c.is_certified_hash(out["pair_hash"]) is False
 
-    def test_first_publisher_wins_and_certificates_carry_it(self):
+    def test_several_accounts_may_publish_the_same_hash_and_nobody_is_authoritative(self):
+        """A publication is a wallet's assertion under its own key. Nobody wins a race,
+        nobody is in anybody's way, and the register never names one publisher as the
+        authoritative one: the consumer brings the address it trusts."""
         c = _contract(); h = ff._sha(SRC_TEXT)
         _as("0xPUBLISHER")
         assert json.loads(c.publish(h, "Meeting note"))["publisher"] == "0xPUBLISHER"
-        _as("0xPUBLISHER"); c.publish(h, "Meeting note, retitled")          # the same account may re-title
-        _as("0xIMPOSTOR")
-        with pytest.raises(ff.gl.vm.UserError) as e:
-            c.publish(h, "mine now")
-        assert "not replaced" in str(e.value)
+        c.publish(h, "Meeting note, retitled")                                    # the same account may re-title
+        _as("0xOTHER")
+        assert json.loads(c.publish(h, "mine too"))["publishers"] == 2            # another account is not in its way
         with pytest.raises(ff.gl.vm.UserError):
             c.publish("nothex", "x")
+        assert c.is_published_by("0xPUBLISHER", h) and c.is_published_by("0xpublisher", h) and c.is_published_by("0xOTHER", h)
+        assert not c.is_published_by("0xIMPOSTOR", h) and not c.is_published_by("0xPUBLISHER", "0" * 64)
+        rows = json.loads(c.publishers_of(h))
+        assert [r["publisher"] for r in rows] == ["0xPUBLISHER", "0xOTHER"] and rows[0]["title"] == "Meeting note, retitled"
         _as("0xTRANSLATOR"); _judged()
-        out = json.loads(c.certify("good", "English", "Spanish", SRC_TEXT, GOOD))
-        assert out["publisher"] == "0xPUBLISHER"
-        assert json.loads(c.certificate("good"))["publisher_title"] == "Meeting note, retitled"
-        assert json.loads(c.publisher_of("0" * 64))["publisher"] == ff.ZERO
+        cert = json.loads(c.certify("good", "English", "Spanish", SRC_TEXT, GOOD))
+        assert cert["publishers"] == ["0xpublisher", "0xother"]                  # live, in order of arrival, never one
+        assert json.loads(c.certificate("good"))["publishers"] == ["0xpublisher", "0xother"]
+        assert json.loads(c.publication("0xOTHER", h))["title"] == "mine too"
+        assert json.loads(c.publication("0xNOBODY", h))["published"] is False
+        assert json.loads(c.publishers_of("0" * 64)) == []
+
+    def test_a_source_hash_takes_at_most_twenty_publishers(self):
+        c = _contract(); h = ff._sha(SRC_TEXT)
+        for i in range(ff.MAX_PUBLISHERS):
+            _as("0xACCOUNT" + str(i)); c.publish(h, "copy " + str(i))
+        _as("0xONEMORE")
+        with pytest.raises(ff.gl.vm.UserError) as e:
+            c.publish(h, "too many")
+        assert "already has 20 publishers" in str(e.value)
+        _as("0xACCOUNT3"); c.publish(h, "retitled")                              # an existing publisher may still re-title
 
     def test_a_manifest_is_certified_only_when_every_part_passed(self):
         c = _contract(); _judged()
@@ -198,6 +215,51 @@ class TestBindings:
         with pytest.raises(ff.gl.vm.UserError) as e:
             c.manifest("same-parts", json.dumps(ok))
         assert "already a manifest named doc" in str(e.value)
+
+
+class TestDomain:
+    def test_a_domain_is_a_bare_lowercase_host(self):
+        for good in ["example.org", "faithful-one.vercel.app", "a.b.c.d", "x1.io"]:
+            assert ff._valid_domain(good), good
+        for bad in ["", "Example.org", "https://example.org", "example.org/path", "example.org:443", "-a.org", "a-.org",
+                    ".org", "a..b", "localhost", "a" * 250 + ".org", "exa mple.org", "ex_ample.org"]:
+            assert not ff._valid_domain(bad), bad
+        assert ff._well_known_url("example.org") == "https://example.org/.well-known/faithful.json"
+
+    def test_the_well_known_document_names_an_address_or_it_does_not(self):
+        me = "0xAbC0000000000000000000000000000000000001"
+        assert ff._names_publisher(json.dumps({"publishers": [me]}).encode(), me)
+        assert ff._names_publisher(json.dumps({"publishers": [" " + me.lower() + " "]}), me)      # case and whitespace do not matter
+        assert not ff._names_publisher(json.dumps({"publishers": ["0xAbC0000000000000000000000000000000000002"]}), me)
+        assert not ff._names_publisher(json.dumps({"publishers": me}), me)                         # not a list
+        assert not ff._names_publisher(json.dumps([me]), me)                                       # not an object
+        assert not ff._names_publisher("not json at all " + me, me)                                # the address in prose is not a listing
+        assert not ff._names_publisher(json.dumps({"other": [me]}), me)
+        assert not ff._names_publisher(b"\xff\xfe", me)
+
+    def test_bind_domain_stores_only_a_yes_from_the_validators(self):
+        c = _contract(); _as("0xPUBLISHER")
+        ff.gl.vm.run_nondet_unsafe = lambda leader, validator: {"bound": "no", "why": "the document does not name 0xPUBLISHER"}
+        with pytest.raises(ff.gl.vm.UserError) as e:
+            c.bind_domain("example.org")
+        assert "does not name 0xPUBLISHER" in str(e.value) and "0xpublisher" not in c.domains
+        ff.gl.vm.run_nondet_unsafe = lambda leader, validator: {"bound": "yes", "why": ""}
+        out = json.loads(c.bind_domain(" example.org "))
+        assert out["domain"] == "example.org" and out["checked"] == "https://example.org/.well-known/faithful.json"
+        assert c.is_bound("0xPUBLISHER", "example.org") and c.is_bound("0xpublisher", "EXAMPLE.org")
+        assert not c.is_bound("0xPUBLISHER", "other.org") and not c.is_bound("0xPUBLISHER", "") and not c.is_bound("0xOTHER", "example.org")
+        assert json.loads(c.domain_of("0xPUBLISHER"))["domain"] == "example.org"
+        assert json.loads(c.domain_of("0xOTHER"))["domain"] == ""
+        c.publish(ff._sha(SRC_TEXT), "note")
+        assert json.loads(c.publishers_of(ff._sha(SRC_TEXT)))[0]["domain"] == "example.org"
+
+    def test_a_bad_domain_is_refused_before_any_validator_fetches_anything(self):
+        c = _contract(); _as("0xPUBLISHER")
+        ff.gl.vm.run_nondet_unsafe = lambda l, v: (_ for _ in ()).throw(AssertionError("the network was asked"))
+        for bad in ["https://example.org", "example.org/x", "", "no-dots"]:
+            with pytest.raises(ff.gl.vm.UserError) as e:
+                c.bind_domain(bad)
+            assert "bare lowercase host" in str(e.value)
 
 
 class TestClock:
@@ -243,6 +305,7 @@ class TestStaticRules:
         "certify": "anyone may submit a translation for judgment; the submitter is on the row, and the same pair is never judged twice",
         "publish": "anyone may publish a source hash under its own address; the first publisher keeps it",
         "manifest": "anyone may declare a document as a list of pair hashes; the declarer is on the row and nothing about the parts is trusted from it",
+        "bind_domain": "anyone may bind their own address to a host; every validator checks the host names the sender, and only the sender's row is written",
     }
 
     def test_every_write_records_the_sender_or_is_listed_with_a_reason(self):
@@ -268,12 +331,21 @@ class TestStaticRules:
                         offenders.append(ast.unparse(side))
         assert not offenders, offenders
 
-    def test_the_nondet_call_lives_inside_the_leader_closure(self):
-        certify = next(n for n in ast.walk(TREE) if isinstance(n, ast.FunctionDef) and n.name == "certify")
-        leader = next(n for n in ast.walk(certify) if isinstance(n, ast.FunctionDef) and n.name == "leader_fn")
-        inside = {ast.unparse(n) for n in ast.walk(leader) if isinstance(n, ast.Call) and "gl.nondet" in ast.unparse(n.func)}
+    def test_every_nondet_call_lives_inside_a_leader_closure(self):
+        """The model in certify, the web in bind_domain: each nondeterministic call sits in a
+        leader_fn that the validators re-run, and nowhere else."""
+        inside = set()
+        for write in ("certify", "bind_domain"):
+            fn = next(n for n in ast.walk(TREE) if isinstance(n, ast.FunctionDef) and n.name == write)
+            leader = next(n for n in ast.walk(fn) if isinstance(n, ast.FunctionDef) and n.name == "leader_fn")
+            inside |= {ast.unparse(n) for n in ast.walk(leader) if isinstance(n, ast.Call) and "gl.nondet" in ast.unparse(n.func)}
         everywhere = {ast.unparse(n) for n in ast.walk(TREE) if isinstance(n, ast.Call) and "gl.nondet" in ast.unparse(n.func)}
-        assert inside == everywhere and len(inside) == 1
+        assert inside == everywhere and len(inside) == 2
+
+    def test_the_domain_validator_compares_one_word_and_never_the_reason(self):
+        fn = next(n for n in ast.walk(TREE) if isinstance(n, ast.FunctionDef) and n.name == "bind_domain")
+        validator = ast.unparse(next(n for n in ast.walk(fn) if isinstance(n, ast.FunctionDef) and n.name == "validator_fn"))
+        assert "theirs.get('bound')" in validator and "why" not in validator
 
     def test_no_float_or_datetime_reaches_deterministic_code(self):
         assert "import datetime" not in SRC and "time.time(" not in SRC

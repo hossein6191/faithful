@@ -1,0 +1,8 @@
+{
+  "faithful": 1,
+  "what": "Addresses this host vouches for as publishers on the Faithful register. Validators fetch this file when one of them calls bind_domain.",
+  "publishers": [
+    "0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe",
+    "0x678FB1528cC996F01860bd554bef040E9cFB513F"
+  ]
+}

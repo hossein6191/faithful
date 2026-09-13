@@ -1,4 +1,4 @@
-# v0.2.16
+# v0.3.0
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 """Bounty: money that can only reach a translator the register certified.
@@ -8,21 +8,27 @@ consensus about. A contract that records a verdict and stops has produced an
 opinion; this one reads that verdict and moves money, and there is no path
 through it that pays for a translation the validators refused.
 
-A requester opens a bounty for one pair hash — or one document manifest — in one Faithful register,
-funds it, and binds the translator's wallet. `settle()` then asks the register,
-through an ordinary synchronous view, what it already decided:
+A requester opens a bounty for one pair hash, or one document manifest, in one
+Faithful register, funds it, and binds the translator's wallet. The requester
+may also name the publisher whose source the translation must be of, and the
+host that publisher must be bound to. `settle()` then asks the register, through
+ordinary synchronous views, what it already decided:
 
     certified, with or without reservations  -> the translator is paid
     rejected                                 -> the requester is refunded
-    no certificate under that name yet       -> nothing happens, try later
+    no certificate under that key yet        -> nothing happens, try later
 
-No model runs here and no validator is asked anything about anybody. The
-answer is the one already agreed, read for free, and obeyed once.
+A name or a hash on the register is never authority on its own: whoever paid
+says which publisher address they trust, and the register only answers whether
+that address published these bytes and whether its host vouches for it. No
+model runs here and no validator is asked anything about anybody. The answer is
+the one already agreed, read for free, and obeyed once.
 
 It is a fixture: small on purpose, and here to be read.
 """
 
 import json
+import typing
 from genlayer import *
 
 
@@ -42,9 +48,10 @@ ZERO = "0x0000000000000000000000000000000000000000"
 
 class Bounty(gl.Contract):
     register: Address        # the Faithful register holding the certificate
-    kind: str                # "pair" — one certificate — or "document" — a manifest of parts
+    kind: str                # "pair" for one certificate, "document" for a manifest of parts
     key: str                 # the pair hash or the manifest hash this bounty is for
     publisher: Address       # if not ZERO, the source must have been published by this account
+    domain: str              # if not "", the publisher must be bound to this host by the validators
     requester: Address       # who funds it, and who is refunded on a rejection
     translator: Address      # who is paid on a certification
     bound: bool
@@ -52,7 +59,7 @@ class Bounty(gl.Contract):
     settled: bool
     outcome_json: str
 
-    def __init__(self, register: str, kind: str, key: str, publisher: str) -> None:
+    def __init__(self, register: str, kind: str, key: str, publisher: str, domain: str) -> None:
         self.register = Address(register)
         kind = kind.strip().lower()
         if kind not in ("pair", "document"):
@@ -60,9 +67,13 @@ class Bounty(gl.Contract):
         key = key.strip().lower()
         if len(key) != 64 or any(ch not in "0123456789abcdef" for ch in key):
             raise gl.vm.UserError("[EXPECTED] the key is a 64-character hex hash")
+        domain = domain.strip().lower()
+        if domain and not publisher.strip():
+            raise gl.vm.UserError("[EXPECTED] a domain requirement needs a publisher to be bound to it")
         self.kind = kind
         self.key = key
         self.publisher = Address(publisher.strip()) if publisher.strip() else Address(ZERO)
+        self.domain = domain
         self.requester = gl.message.sender_address
         self.translator = gl.message.sender_address
         self.bound = False
@@ -95,7 +106,7 @@ class Bounty(gl.Contract):
         """Add to the bounty. Anybody may.
 
         This never raises. Value sent with a *refused* payable call is not
-        returned by the chain — it is simply stranded in the contract — so a
+        returned by the chain; it is simply stranded in the contract. So a
         call that cannot be honoured is accepted, refunded explicitly, and told
         why. A refusal that costs the caller their money is not a refusal.
         """
@@ -124,31 +135,40 @@ class Bounty(gl.Contract):
             return ""
         return "certified" if doc.get("certified") else "rejected"
 
+    def _provenance(self, register: typing.Any, source_hashes: list) -> bool:
+        """The publisher rule, when the requester set one: every source must have
+        been published by the named address, and that address must be bound to
+        the named host when one was required."""
+        if self.publisher.as_hex == ZERO:
+            return True
+        who = self.publisher.as_hex
+        for source_hash in source_hashes:
+            if not bool(register.view().is_published_by(who, str(source_hash))):
+                return False
+        if str(self.domain):
+            return bool(register.view().is_bound(who, str(self.domain)))
+        return True
+
     def _certified(self) -> bool:
-        """The gate, plus the publisher rule when the requester set one."""
+        """The gate, plus provenance when the requester asked for it."""
         register = gl.get_contract_at(self.register)
         if str(self.kind) == "pair":
             if not bool(register.view().is_certified_hash(str(self.key))):
                 return False
-            if self.publisher.as_hex != ZERO:
-                entry = json.loads(str(register.view().certificate_hash(str(self.key))))
-                return str(entry.get("publisher", "")).lower() == self.publisher.as_hex.lower()
-            return True
+            entry = json.loads(str(register.view().certificate_hash(str(self.key))))
+            return self._provenance(register, [entry.get("source_hash", "")])
         if not bool(register.view().is_document_certified(str(self.key))):
             return False
-        if self.publisher.as_hex != ZERO:
-            doc = json.loads(str(register.view().document(str(self.key))))
-            return all(str(p.get("publisher", "")).lower() == self.publisher.as_hex.lower() for p in doc.get("parts", []))
-        return True
+        doc = json.loads(str(register.view().document(str(self.key))))
+        return self._provenance(register, [p.get("source_hash", "") for p in doc.get("parts", [])])
 
     @gl.public.write
     def settle(self) -> str:
         """Pay the translator or refund the requester, once, as the register decided.
 
         The whole judgement was made and agreed elsewhere. Here it is read
-        synchronously and obeyed: `is_certified` is a view, so this costs no
-        consensus and no model call, and two people running it would get the
-        same answer.
+        synchronously and obeyed: the views cost no consensus and no model
+        call, and two people running this would get the same answer.
         """
         if self.settled:
             raise gl.vm.UserError("[EXPECTED] this bounty has already been settled")
@@ -198,6 +218,7 @@ class Bounty(gl.Contract):
             "kind": str(self.kind),
             "key": str(self.key),
             "publisher": self.publisher.as_hex,
+            "domain": str(self.domain),
             "requester": self.requester.as_hex,
             "translator": self.translator.as_hex if self.bound else None,
             "pool": str(int(self.pool)),
