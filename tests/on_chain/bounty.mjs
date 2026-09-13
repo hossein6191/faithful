@@ -6,7 +6,8 @@
  * that pays for a translation the validators refused.
  *
  * Runs against the register this repository's evidence points at, and the
- * four certificates in it. Deploys three bounties with a throwaway account.
+ * certificates in it. Deploys up to eight bounties with a throwaway account:
+ * three for the verdict paths, four for provenance, one for a document.
  *
  *   REGISTER=0x… node tests/on_chain/bounty.mjs
  */
@@ -145,7 +146,10 @@ ok("the refund is real", funderBefore - (await settledBack(acc.address, funderBe
 
 // ---------- bound to a publisher, and to a document ----------
 const wrongPublisher = await deployFor(CERT_OK, "pair", loser);
-ok("a bounty that names a publisher pays nobody when the source was not published by it", (await view(wrongPublisher, "would_pay")) === "requester", String(await view(wrongPublisher, "would_pay")));
+ok("a bounty naming a publisher that has not published the source waits: certified work is never refunded over provenance", String(await view(wrongPublisher, "would_pay")).startsWith("nobody: certified, but"), String(await view(wrongPublisher, "would_pay")));
+await send(wrongPublisher, "fund", [], 2n * GEN);
+const sw = await send(wrongPublisher, "settle", []);
+ok("and settle refuses with the reason, keeping the funds", sw.exec === "ERROR" && sw.msg.includes("has not published this source") && sw.msg.includes("nothing to settle yet"), sw.msg.slice(0, 90));
 const okCert = JSON.parse(String(await rd.readContract({ address: REGISTER, functionName: "certificate", args: [CERT_OK] })));
 const firstPublisher = (okCert.publishers || [])[0];
 if (firstPublisher) {
@@ -153,10 +157,10 @@ if (firstPublisher) {
   ok("and pays the translator when the named publisher did publish the source", (await view(rightPublisher, "would_pay")) === "translator");
   const isBound = await rd.readContract({ address: REGISTER, functionName: "is_bound", args: [firstPublisher, DOMAIN] });
   const withHost = await deployFor(CERT_OK, "pair", firstPublisher, DOMAIN);
-  ok(`a bounty that also requires the host ${DOMAIN} pays ${isBound ? "the translator, the publisher being bound to it" : "nobody but the requester while the publisher is not bound to it"}`,
-     (await view(withHost, "would_pay")) === (isBound ? "translator" : "requester"), `is_bound ${isBound}`);
+  ok(`a bounty that also requires the host ${DOMAIN} ${isBound ? "pays the translator, the publisher being bound to it" : "waits while the publisher is not bound to it"}`,
+     isBound ? (await view(withHost, "would_pay")) === "translator" : String(await view(withHost, "would_pay")).startsWith("nobody: certified, but"), `is_bound ${isBound}`);
   const otherHost = await deployFor(CERT_OK, "pair", firstPublisher, "other.example");
-  ok("a bounty requiring a host the publisher is not bound to pays nobody but the requester", (await view(otherHost, "would_pay")) === "requester");
+  ok("a bounty requiring a host the publisher is not bound to waits, and refunds nobody", String(await view(otherHost, "would_pay")).startsWith("nobody: certified, but") && String(await view(otherHost, "would_pay")).includes("not bound to other.example"));
 } else console.log("(the register's certificate has no publisher; the matching-publisher checks need one)");
 if (MANIFEST) {
   const D = await deployFor(MANIFEST, "document");

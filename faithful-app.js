@@ -697,6 +697,9 @@ async function loadSnapshot() {
   return snapshot;
 }
 const short = (h) => (h ? String(h).slice(0, 10) + "…" : "");
+const ZERO_ADDRESS = "0x" + "0".repeat(40);
+/* a live row carries a publishers list; a row from an older snapshot may carry one publisher */
+const publishersOf = (e) => Array.isArray(e.publishers) ? e.publishers : (e.publisher && e.publisher !== ZERO_ADDRESS ? [e.publisher] : []);
 
 /* Publishers are a list per source hash, never one. Each one may be bound to a host by
    the validators; the host is read once per address and remembered for the page. */
@@ -760,7 +763,7 @@ async function renderLedger() {
       <td class="mono" style="color:${scoreColour(e.fluency)}">${e.fluency}</td>
       <td class="mono" style="color:var(--fg-3)">${esc((e.defects || []).join(", ") || "none")}</td>
       <td class="mono" title="${esc(e.pair_hash || "")}" style="cursor:copy" data-copy="${esc(e.pair_hash || "")}">${esc(short(e.pair_hash))}</td>
-      <td class="mono" style="color:var(--fg-3)">${fromSnapshot ? esc((e.publishers || []).map(short).join(", ") || "\u2014") : await publishersCell(e.publishers)}</td>
+      <td class="mono" style="color:var(--fg-3)">${fromSnapshot || !Array.isArray(e.publishers) ? esc(publishersOf(e).map(short).join(", ") || "\u2014") : await publishersCell(e.publishers)}</td>
     </tr>`);
   }
   body.innerHTML = rows.join("");
@@ -786,7 +789,7 @@ if ($("verify")) $("verify").onclick = async () => {
   if (!valid.ok || !cert.ok) { $("verifySt").textContent = "could not read just now — try again"; return; }
   const e = JSON.parse(String(cert.value));
   $("verifySt").innerHTML = e.error ? `<span class="warn">no certificate with that pair hash</span>`
-    : `is_certified_hash → <b>${valid.value}</b> · ${esc(e.name)} · ${esc(e.verdict)} · fidelity ${e.fidelity} coverage ${e.coverage} fluency ${e.fluency}${(e.publishers || []).length ? " · publishers: " + e.publishers.map(short).map(esc).join(", ") : " · no publisher has claimed this source"}`;
+    : `is_certified_hash → <b>${valid.value}</b> · ${esc(e.name)} · ${esc(e.verdict)} · fidelity ${e.fidelity} coverage ${e.coverage} fluency ${e.fluency}${publishersOf(e).length ? " · publishers: " + publishersOf(e).map(short).map(esc).join(", ") : " · no publisher has claimed this source"}`;
 };
 
 /* ------------------------------------------------------- publishers and hosts */

@@ -176,14 +176,18 @@ class TestBindings:
         assert json.loads(c.publication("0xNOBODY", h))["published"] is False
         assert json.loads(c.publishers_of("0" * 64)) == []
 
-    def test_a_source_hash_takes_at_most_twenty_publishers(self):
+    def test_no_number_of_accounts_can_keep_a_publisher_from_its_row(self):
+        """The listing is capped so publishers_of stays short; the row never is: the
+        twenty-first account is still published, and is_published_by says so."""
         c = _contract(); h = ff._sha(SRC_TEXT)
         for i in range(ff.MAX_PUBLISHERS):
             _as("0xACCOUNT" + str(i)); c.publish(h, "copy " + str(i))
         _as("0xONEMORE")
-        with pytest.raises(ff.gl.vm.UserError) as e:
-            c.publish(h, "too many")
-        assert "already has 20 publishers" in str(e.value)
+        out = json.loads(c.publish(h, "mine as well"))
+        assert out["ok"] is True and out["listed"] is False and out["publishers"] == ff.MAX_PUBLISHERS
+        assert c.is_published_by("0xONEMORE", h) is True
+        assert json.loads(c.publication("0xONEMORE", h))["title"] == "mine as well"
+        assert len(json.loads(c.publishers_of(h))) == ff.MAX_PUBLISHERS
         _as("0xACCOUNT3"); c.publish(h, "retitled")                              # an existing publisher may still re-title
 
     def test_a_manifest_is_certified_only_when_every_part_passed(self):
@@ -222,7 +226,8 @@ class TestDomain:
         for good in ["example.org", "faithful-one.vercel.app", "a.b.c.d", "x1.io"]:
             assert ff._valid_domain(good), good
         for bad in ["", "Example.org", "https://example.org", "example.org/path", "example.org:443", "-a.org", "a-.org",
-                    ".org", "a..b", "localhost", "a" * 250 + ".org", "exa mple.org", "ex_ample.org"]:
+                    ".org", "a..b", "localhost", "a" * 250 + ".org", "exa mple.org", "ex_ample.org",
+                    "127.0.0.1", "169.254.169.254", "1.1", "10.0.0.1"]:
             assert not ff._valid_domain(bad), bad
         assert ff._well_known_url("example.org") == "https://example.org/.well-known/faithful.json"
 
@@ -252,6 +257,87 @@ class TestDomain:
         assert json.loads(c.domain_of("0xOTHER"))["domain"] == ""
         c.publish(ff._sha(SRC_TEXT), "note")
         assert json.loads(c.publishers_of(ff._sha(SRC_TEXT)))[0]["domain"] == "example.org"
+
+    # ---- the round itself: a fake web, and a stand-in for consensus that really runs the closures
+    def _round(self, status, body, sender="0xPUBLISHER"):
+        """Install a fake gl.nondet.web.get and a run_nondet_unsafe that calls the leader
+        and hands the closures back, so the fetch paths and the validator's comparison
+        are executed rather than assumed."""
+        captured = {}
+        ff.gl.nondet = types.SimpleNamespace(web=types.SimpleNamespace(get=lambda url: types.SimpleNamespace(status=status, body=body)))
+        def stand_in(leader, validator):
+            captured["leader"], captured["validator"] = leader, validator
+            return leader()
+        ff.gl.vm.run_nondet_unsafe = stand_in
+        _as(sender)
+        return captured
+
+    @staticmethod
+    def _returned(calldata):
+        r = ff.gl.vm.Return(); r.calldata = calldata; return r
+
+    @staticmethod
+    def _failed(message):
+        class Failed: pass
+        f = Failed(); f.message = message; return f
+
+    def test_the_leader_reads_the_document_and_answers_one_word(self):
+        me = "0xPUBLISHER"
+        c = _contract()
+        cap = self._round(200, json.dumps({"publishers": [me]}).encode()); out = json.loads(c.bind_domain("example.org"))
+        assert out["ok"] is True and c.is_bound(me, "example.org")
+        for status, body, why in [(200, json.dumps({"publishers": ["x" + me]}).encode(), "a longer string is not the address"),
+                                  (200, json.dumps({"publishers": [me + "x"]}).encode(), "a longer string is not the address"),
+                                  (200, '{"publishers": ["' + "x" * (ff.MAX_BODY_CHARS + 100) + '", "' + me + '"]}', "an address past the cap is not read"),
+                                  (200, b"\xff\xfe", "not JSON"), (301, b"", "a redirect body is not a listing"), (404, b"", "no document")]:
+            c2 = _contract(); self._round(status, body)
+            with pytest.raises(ff.gl.vm.UserError) as e:
+                c2.bind_domain("example.org")
+            assert "does not name 0xPUBLISHER" in str(e.value), why
+            assert not c2.is_bound(me, "example.org"), why
+        c3 = _contract(); cap = self._round(200, (json.dumps({"publishers": [me]})[:-2] + ", " + json.dumps("x" * (ff.MAX_BODY_CHARS + 10)) + "]}").encode())
+        with pytest.raises(ff.gl.vm.UserError):
+            c3.bind_domain("example.org")
+
+    def test_a_host_that_refuses_or_fails_is_an_error_every_node_can_compare(self):
+        c = _contract(); cap = self._round(403, b"forbidden")
+        with pytest.raises(ff.gl.vm.UserError) as e:
+            c.bind_domain("example.org")
+        assert str(e.value).startswith(ff.ERROR_EXTERNAL) and "answered 403" in str(e.value)
+        leader = cap["leader"]
+        assert ff._handle_leader_error(self._failed(ff.ERROR_EXTERNAL + " example.org answered 403"), leader) is True
+        assert ff._handle_leader_error(self._failed(ff.ERROR_EXTERNAL + " example.org answered 401"), leader) is False   # a different deterministic error
+        c = _contract(); cap = self._round(503, b"")
+        with pytest.raises(ff.gl.vm.UserError) as e:
+            c.bind_domain("example.org")
+        assert str(e.value).startswith(ff.ERROR_TRANSIENT)
+        assert ff._handle_leader_error(self._failed(ff.ERROR_TRANSIENT + " example.org answered 502"), cap["leader"]) is True   # both transient: agree
+        assert ff._handle_leader_error(self._failed(ff.ERROR_TRANSIENT + " x"), lambda: {"bound": "no"}) is False           # leader failed, validator did not
+        ff.gl.nondet = types.SimpleNamespace(web=types.SimpleNamespace(get=lambda url: (_ for _ in ()).throw(RuntimeError("dns"))))
+        c = _contract(); _as("0xPUBLISHER")
+        def stand_in(leader, validator): return leader()
+        ff.gl.vm.run_nondet_unsafe = stand_in
+        with pytest.raises(ff.gl.vm.UserError) as e:
+            c.bind_domain("example.org")
+        assert str(e.value).startswith(ff.ERROR_TRANSIENT) and "could not be fetched" in str(e.value)
+
+    def test_validators_agree_on_the_word_only(self):
+        me = "0xPUBLISHER"
+        c = _contract(); cap = self._round(200, json.dumps({"publishers": [me]}).encode()); c.bind_domain("example.org")
+        validator = cap["validator"]
+        assert validator(self._returned({"bound": "yes", "why": "anything at all"})) is True     # the reason is never compared
+        assert validator(self._returned({"bound": "no", "why": ""})) is False                     # the leader said no, this node saw yes
+        assert validator(self._returned("not an object")) is False
+        assert validator(self._failed(ff.ERROR_EXPECTED + " x")) is False                         # the leader failed, this node fetched fine
+
+    def test_a_publisher_can_take_its_binding_back_without_a_validator(self):
+        me = "0xPUBLISHER"
+        c = _contract(); self._round(200, json.dumps({"publishers": [me]}).encode()); c.bind_domain("example.org")
+        ff.gl.vm.run_nondet_unsafe = lambda l, v: (_ for _ in ()).throw(AssertionError("the network was asked"))
+        out = json.loads(c.unbind_domain())
+        assert out["unbound"] == "example.org" and not c.is_bound(me, "example.org") and json.loads(c.domain_of(me))["domain"] == ""
+        with pytest.raises(ff.gl.vm.UserError):
+            c.unbind_domain()
 
     def test_a_bad_domain_is_refused_before_any_validator_fetches_anything(self):
         c = _contract(); _as("0xPUBLISHER")
@@ -303,9 +389,10 @@ class TestStaticRules:
     # relies on; it is checked below, not assumed.
     OPEN_ON_PURPOSE = {
         "certify": "anyone may submit a translation for judgment; the submitter is on the row, and the same pair is never judged twice",
-        "publish": "anyone may publish a source hash under its own address; the first publisher keeps it",
+        "publish": "anyone may publish a source hash under its own address; the row is keyed by (address, hash), several may publish the same hash and none is authoritative",
         "manifest": "anyone may declare a document as a list of pair hashes; the declarer is on the row and nothing about the parts is trusted from it",
         "bind_domain": "anyone may bind their own address to a host; every validator checks the host names the sender, and only the sender's row is written",
+        "unbind_domain": "the sender takes its own binding back; nothing but its own row changes",
     }
 
     def test_every_write_records_the_sender_or_is_listed_with_a_reason(self):

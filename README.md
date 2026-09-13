@@ -205,12 +205,26 @@ by identity, and the same pair is never judged twice: a second `certify` over
 identical bytes is refused with the name of the certificate that already holds
 them — a certificate is not asked for until the answer suits.
 
-**Publishers.** Whoever owns a source can put its hash on the record first,
-under its own address, with `publish(source_hash, title)`. The first publisher
-keeps the hash; another account cannot take it over. A certificate judged later
-over that source carries the publisher's address, so a consumer can ask not only
-"is this translation faithful to these bytes" but "and are these bytes the
-publisher's".
+**Publishers, and why none of them is "the" publisher.** `publish(source_hash,
+title)` puts a source hash on the record under the caller's own address. It is
+a row keyed by that address and the hash: any number of accounts may publish the
+same hash, nobody wins a race, and nobody is in anybody's way. A row is a wallet's
+assertion, nothing more, and the register never names one publisher as the
+authoritative one. A consumer that relies on provenance brings the address it
+trusts and asks `is_published_by(address, source_hash)`; `publishers_of(hash)`
+lists everyone who claimed it, in order of arrival, and a certificate lists them
+live.
+
+**Hosts, checked by the validators.** A publisher can say more than "this is
+mine": `bind_domain(host)` makes every validator fetch
+`https://host/.well-known/faithful.json` itself and read whether its
+`publishers` list names the sender. Only a yes binds; a no is a stored refusal
+with the reason. `is_bound(publisher, host)` then answers for free, and a bounty
+may require it. That turns provenance from something a wallet signs into
+something several nodes checked against a file only the host's owner can put
+there. This site vouches for the addresses listed in
+[`/.well-known/faithful.json`](https://faithful-one.vercel.app/.well-known/faithful.json);
+a wallet the file does not name is refused by the validators.
 
 **Documents in parts.** A long text is judged in parts — the contract caps each
 side at 4,000 characters — and a document is a `manifest(name, [pair_hash, …])`:
@@ -226,17 +240,24 @@ certificate, and verifies a pair hash against the register with one free read.
 
 A contract that records a verdict and stops has produced an opinion.
 `contracts/fixtures/bounty.py` is the other half: a requester opens a bounty
-for one **pair hash** — or one **document manifest** — in one register,
-optionally naming the publisher the source must have been published by, funds
-it, and binds the translator's wallet. `settle()` asks the register — through
-an ordinary synchronous view, no model, no consensus — what it already decided,
-and obeys it once:
+for one **pair hash** (or one **document manifest**) in one register, may name
+the publisher whose source it must be and the host that publisher must be bound
+to, funds it, and binds the translator's wallet. `settle()` asks the
+register, through ordinary synchronous views with no model and no consensus,
+what it already decided, and obeys it once:
 
 ```
-certified, with or without reservations, by the named publisher   → the translator is paid
-rejected, or published by somebody else                           → the requester is refunded
-nothing under that hash yet                                       → nothing happens; try later
+certified, and the named publisher did publish the source (and is bound to the host, if one was named)  → the translator is paid
+rejected by the validators                                                                             → the requester is refunded
+nothing under that hash yet, or certified but the named publisher has not published the source
+or is not bound to the host yet                                                                        → nothing happens; try later
 ```
+
+The register never tells the bounty who the publisher is. The requester says
+which address it trusts, and the register only answers whether that address
+published these bytes and whether its host vouches for it. Provenance is a
+reason to wait, never to refund: a certified translation is the translator's
+work, and only the validators' rejection sends the money back.
 
 There is no path through it that pays for a translation the validators
 refused, and `would_pay()` says what `settle()` will do before anybody signs.
@@ -254,17 +275,23 @@ returned by the chain, so the contract returns it itself and says why.
 
 ```
 certify(name, source_lang, target_lang, source, translation)   the one call that costs consensus
-publish(source_hash, title)                                    a publisher's address on the record, first come
+publish(source_hash, title)                                    a source hash under the caller's own address; several may
+bind_domain(host)                                              the validators check https://host/.well-known/faithful.json names the caller
+unbind_domain()                                                the caller takes its own binding back, no validator needed
 manifest(name, [pair_hash, …])                                 a document judged in parts
 
 is_certified(name) -> bool             the gate; reservations still certify
 is_certified_hash(pair_hash) -> bool   the gate by identity
 is_document_certified(manifest_hash)   true only when every part passed
 certificate(name) · certificate_hash(pair_hash)
-                                       verdict, three scores, defects, submitter, hashes, publisher
+                                       verdict, three scores, defects, submitter, hashes, publishers
 texts(name)                            the exact pair that was judged
-document(manifest_hash)                every part's live state
-publisher_of(source_hash)              who published it, and under what title
+document(manifest_hash)                every part's live state, with each part's source hash and publishers
+is_published_by(publisher, source_hash)   did THIS address publish these bytes
+publishers_of(source_hash)             everyone who did, in order of arrival, with their host if bound
+publication(publisher, source_hash)    one publisher's row: title, time, host
+is_bound(publisher, host) · domain_of(publisher)
+                                       what the validators checked against the host's well-known file
 communities()                          the sixteen labels and the language each means
 rules()                                the gate, the agreement rule, and the bindings
 names() · manifests_list()             what this register holds

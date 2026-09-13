@@ -151,14 +151,30 @@ same pair is never judged twice. The refusal matters as much as the binding: it
 is the half of rule "somewhere to go" that says somewhere to go must not mean
 asking the same question until the answer suits.
 
-## A publisher is an address on the record, not a claim in a text
+## A publisher is an address on the record, and no address is "the" publisher
 
-"Source authenticity" cannot be judged from the text — a model cannot tell the
-publisher's bytes from a forgery of them. What can be recorded is *who put the
-hash on the chain first*. `publish` is first-come and never replaced, and a
-certificate judged later over that source carries the publisher's address. A
-consumer that cares asks for both: faithful to these bytes, and these bytes are
-the publisher's.
+"Source authenticity" cannot be judged from the text: a model cannot tell the
+publisher's bytes from a forgery of them. The second deployment recorded *who put
+the hash on the chain first*, first come and never replaced, and the Explorer
+review named the hole in one sentence: a published hash is a wallet-signed
+assertion and first publisher wins, so a value-bearing integrator still had to
+know out of band which address was authoritative.
+
+So the register stopped pretending to know. A publication is a row under the
+publisher's own address and the hash; several accounts may publish the same
+hash, nobody can squat another's row, and `publishers_of` is a list on purpose.
+A consumer brings the address it trusts and asks `is_published_by`; the bounty
+takes that address from its requester and never from the register.
+
+Where a stronger word is needed, it is verifiable rather than asserted:
+`bind_domain(host)` is a consensus round in which every validator fetches
+`https://host/.well-known/faithful.json` and reads whether the sender is named.
+The leader's answer is one word, `bound` yes or no, and validators agree on that
+word alone; a no is stored as a refusal with its reason. A host is something
+only its owner can write to, so a binding says what a signature cannot: this
+address is who this host says it is. `is_bound` reads it for free and a bounty
+can require it. What remains unprovable is still unprovable: nobody can show
+who *wrote* a text, only who controls a host and a key.
 
 ## A document in parts is a manifest, and its verdict is never stored
 

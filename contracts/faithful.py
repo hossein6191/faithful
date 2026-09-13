@@ -210,6 +210,8 @@ def _valid_domain(domain: str) -> bool:
         return False
     if domain != domain.lower():
         return False
+    if domain.split(".")[-1].isdigit():
+        return False            # a top label is never all digits, so no dotted-quad IP literal is a host
     for label in domain.split("."):
         if not label or label.startswith("-") or label.endswith("-"):
             return False
@@ -488,17 +490,18 @@ class Faithful(gl.Contract):
             _fail("a title is 1 to " + str(MAX_TITLE_CHARS) + " characters")
         sender = gl.message.sender_address
         sender_hex = _hex(sender)
-        listed = json.loads(str(self.publishers_by_hash[source_hash])) if source_hash in self.publishers_by_hash else []
-        if sender_hex.lower() not in listed:
-            if len(listed) >= MAX_PUBLISHERS:
-                _fail("this source hash already has " + str(MAX_PUBLISHERS) + " publishers")
-            listed.append(sender_hex.lower())
-            self.publishers_by_hash[source_hash] = json.dumps(listed)
+        # The row is always written: it is what is_published_by and every consumer read,
+        # and no number of other accounts can keep it from existing. Only the ordered
+        # listing is capped, so publishers_of stays a short answer.
         self.publications[_pub_key(sender_hex, source_hash)] = Publication(
             publisher=sender, source_hash=source_hash, title=title, at=u64(max(0, _instant_seconds(_now()))),
         )
+        listed = json.loads(str(self.publishers_by_hash[source_hash])) if source_hash in self.publishers_by_hash else []
+        if sender_hex.lower() not in listed and len(listed) < MAX_PUBLISHERS:
+            listed.append(sender_hex.lower())
+            self.publishers_by_hash[source_hash] = json.dumps(listed)
         return json.dumps({"ok": True, "source_hash": source_hash, "publisher": sender_hex, "title": title,
-                           "publishers": len(listed)})
+                           "listed": sender_hex.lower() in listed, "publishers": len(listed)})
 
     @gl.public.write
     def bind_domain(self, domain: str) -> str:
@@ -518,7 +521,10 @@ class Faithful(gl.Contract):
         url = _well_known_url(domain)
 
         def leader_fn() -> typing.Any:
-            res = gl.nondet.web.get(url)
+            try:
+                res = gl.nondet.web.get(url)
+            except Exception:
+                raise gl.vm.UserError(ERROR_TRANSIENT + " " + domain + " could not be fetched")
             status = int(res.status)
             if status == 404:
                 return {"bound": "no", "why": "no document at " + WELL_KNOWN}
@@ -545,6 +551,17 @@ class Faithful(gl.Contract):
             _fail(domain + " does not name " + sender_hex + " in " + WELL_KNOWN + ": " + str(answer.get("why", "")))
         self.domains[sender_hex.lower()] = Domain(domain=domain, at=u64(max(0, _instant_seconds(_now()))))
         return json.dumps({"ok": True, "publisher": sender_hex, "domain": domain, "checked": url})
+
+    @gl.public.write
+    def unbind_domain(self) -> str:
+        """Take the sender's own binding back. Saying less about yourself needs no validator."""
+        sender_hex = _hex(gl.message.sender_address)
+        key = sender_hex.lower()
+        gone = self._domain_of(sender_hex)
+        if not gone:
+            _fail(sender_hex + " is not bound to any host")
+        self.domains[key] = Domain(domain="", at=u64(max(0, _instant_seconds(_now()))))
+        return json.dumps({"ok": True, "publisher": sender_hex, "unbound": gone})
 
     @gl.public.write
     def manifest(self, name: str, parts_json: str) -> str:
@@ -826,7 +843,7 @@ class Faithful(gl.Contract):
 
     def _domain_of(self, publisher_hex: str) -> str:
         key = publisher_hex.lower()
-        return str(self.domains[key].domain) if key in self.domains else ""
+        return str(self.domains[key].domain) if key in self.domains else ""   # "" once unbound
 
     @gl.public.view
     def document(self, manifest_hash: str) -> str:
