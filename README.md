@@ -99,8 +99,8 @@ the well-known file does not name:
 
 | step | result | tx |
 |---|---|---|
-| `publish` of the same source hash | accepted: two publishers on the row, neither authoritative | to be added |
-| `bind_domain("faithful-one.vercel.app")` | **refused by the validators**: *faithful-one.vercel.app does not name 0x449ab0B8… in /.well-known/faithful.json* | to be added |
+| `publish` of the same source hash | accepted, 3–0: two publishers on the row, neither authoritative | [↗](https://explorer-studio.genlayer.com/tx/0xe5d16e9d2db73edad756c0858dafd2f82236af1d0e70295a81765bfe346ebaaa) |
+| `bind_domain("faithful-one.vercel.app")` | **refused by the validators**, 3–0: *faithful-one.vercel.app does not name 0x449ab0B8… in /.well-known/faithful.json* | [↗](https://explorer-studio.genlayer.com/tx/0x755ca79c80828e3c1e6fd53a74cf9ae4702def33fe82c6616601f6b8485673a5) |
 
 **`faithful-but-clumsy` is the one that matters.** Fidelity 95, coverage 100,
 fluency **30**, and it certifies. Every commitment in the passage survived

@@ -1,6 +1,6 @@
 {
  "register": "0xA989Df25f7b94c6c7dA29EAeBFC4C97A0B6E20Cb",
- "taken_at": "2026-09-13T20:09:41Z",
+ "taken_at": "2026-09-13T20:21:21Z",
  "names": [
   "faithful-and-natural",
   "faithful-but-clumsy",
@@ -26,7 +26,8 @@
    "target_hash": "065810a3746ddbdb53b394d2f4e8aa413eb78ce8f8d3c52e44c62aa3749bbb34",
    "pair_hash": "74de75e86c6094ab391d92bbddbe161a23d254e4620a69e893f3ad609161bec6",
    "publishers": [
-    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe"
+    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe",
+    "0x449ab0b80539a6358d6a78664221de0a1d96c65a"
    ]
   },
   "faithful-but-clumsy": {
@@ -45,7 +46,8 @@
    "target_hash": "554b0d4c6a09f6104d2e995212616f9bcc3edc5308a051354697428b72230234",
    "pair_hash": "6367e8b65e8ab307c8aa19b6ae44594b3b9c2f79a990fd27abf2d3edc44aea76",
    "publishers": [
-    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe"
+    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe",
+    "0x449ab0b80539a6358d6a78664221de0a1d96c65a"
    ]
   },
   "numbers-moved": {
@@ -66,7 +68,8 @@
    "target_hash": "7a7396b0254719fb8340da38f7ef6bf75a769a6fc68bb4553241f46b1bcc4078",
    "pair_hash": "77b00bf07fdddcd51877988bbd7fa7597389455530093354ded8c640b112f295",
    "publishers": [
-    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe"
+    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe",
+    "0x449ab0b80539a6358d6a78664221de0a1d96c65a"
    ]
   },
   "half-translated": {
@@ -88,7 +91,8 @@
    "target_hash": "644ae8bbf755a6e772e908349004b8bd20ee0101c51c54b4023d750ef8d1b55c",
    "pair_hash": "6f915f2d347a5f9b32d6e5573b939bb2e9e4643f3a95d4ab894f2ab1c693dff2",
    "publishers": [
-    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe"
+    "0x0a9fd8fe0b041974e8f794fcf3eed352c14cf5fe",
+    "0x449ab0b80539a6358d6a78664221de0a1d96c65a"
    ]
   },
   "terms-part-1": {
