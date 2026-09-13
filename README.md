@@ -54,68 +54,88 @@ Coverage is separate for the same reason. A half-translated document is not
 inaccurate — every word it did translate may be perfect. It is incomplete, which
 is a different defect with a different fix.
 
-## Six certificates, a publisher and a manifest, on chain
+## Six certificates, a publisher, a manifest and a host, on chain
 
-One register, one English source — a short terms-of-service passage — and its
+One register, one English source (a short terms-of-service passage) and its
 translations into Persian, every transaction signed from the author's wallet
-`0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe`. Every number below is read off the
-contract, not reported here from a run somewhere else. The deployed source is
-byte-identical to `contracts/faithful.py` (sha256 `3c9c6cde…`) and passes
-`genvm-lint check` when pulled off the chain.
+`0x0A9fd8Fe0b041974e8F794fCf3Eed352c14cf5fe` on 13 September 2026. Every number
+below is read off the contract, not reported here from a run somewhere else. The
+deployed source is byte-identical to `contracts/faithful.py` (sha256
+`4f2545e44f4bfd989455709f2415e968607ee24ffb734d4ddf49d2b80642483b`, checked with
+`gen_getContractCode`) and passes `genvm-lint check` when pulled off the chain.
 
-**Register:** [`0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2`](https://explorer-studio.genlayer.com/address/0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2)
-· GenLayer Studio · [deploy ↗](https://explorer-studio.genlayer.com/tx/0xc7eebc7efe0a34fbd9790e4ff0c07b5e413bff0f2a51253579bd220012a6436e)
+**Register:** [`0xA989Df25f7b94c6c7dA29EAeBFC4C97A0B6E20Cb`](https://explorer-studio.genlayer.com/address/0xA989Df25f7b94c6c7dA29EAeBFC4C97A0B6E20Cb)
+· GenLayer Studio · [deploy ↗](https://explorer-studio.genlayer.com/tx/0x48ceaf59787555f009320bb3e3cb825b99ad18f6d7c7e000f51a6c75f9b037a8)
 
 > Acme Cloud charges 20 USD per seat each month. Overage is billed at 0.10 USD per gigabyte. Invoices are due within 14 days. We may change these terms with 30 days notice. Support requests are answered within 2 business days.
 
 Before anything was judged, the author published the source's hash under their
-own address — [`publish` ↗](https://explorer-studio.genlayer.com/tx/0x92451d135d85c518d3307529a5b670aee4d009feae4e495b12d2d95b74435281), `source_hash 6530eef7…`,
-title *Acme Cloud terms of service* — so every certificate over that source
-below carries the publisher `0x0A9fd8Fe…`.
+own address ([`publish` ↗](https://explorer-studio.genlayer.com/tx/0x3d73ec4322263501ec23e6f5d3b6d421cee6abb4ab20761d31a2837ad3b097bd),
+`source_hash 6530eef7…`, title *Acme Cloud terms of service*), so every
+certificate over that source below lists `0x0A9fd8Fe…` among its publishers.
+Nobody is "the" publisher: a second wallet may publish the same hash (see the
+last table), and a consumer asks `is_published_by` for the address it trusts.
 
 | certificate | verdict | fid | cov | flu | `is_certified` | votes | pair hash | tx |
 |---|---|---|---|---|---|---|---|---|
-| `faithful-and-natural` | certified | 100 | 100 | 98 | **true** | 3–0 | `74de75e8…` | [↗](https://explorer-studio.genlayer.com/tx/0x6f05b6879e30ef7a4a3921cceaf02f1e88b8292e1eda0bbcd42b2ec1cef00b94) |
-| `faithful-but-clumsy` | certified **with reservations** | 97 | 100 | **30** | **true** | 3–2 | `6367e8b6…` | [↗](https://explorer-studio.genlayer.com/tx/0x5b5b2b2594cc33119c86477bc8da1c932adb238ce4b0ef0feb3f16c627d59822) |
-| `numbers-moved` | rejected · `number_changed` | **40** | 100 | 90 | false | 3–0 | `77b00bf0…` | [↗](https://explorer-studio.genlayer.com/tx/0xb99f402c2e0726afab590f8693b19e828203f495c70089d7636bc15e6bec0145) |
-| `half-translated` | rejected · `omission`, `untranslated` | 95 | **35** | 30 | false | 3–1 | `6f915f2d…` | [↗](https://explorer-studio.genlayer.com/tx/0x4b86b9510c98b506db983c3e0c0fc3fa0a86125e68df24cfb719357b4ef8530d) |
-| `terms-part-1` | certified | 100 | 100 | 100 | **true** | 3–0 | `18502a70…` | [↗](https://explorer-studio.genlayer.com/tx/0xc8706a495d09355ecc82880f750a5c2b74afdf938d16212f1223bc690f59b86e) |
-| `terms-part-2` | certified | 100 | 100 | 98 | **true** | 3–0 | `898bdd71…` | [↗](https://explorer-studio.genlayer.com/tx/0x37a8611588454c08d2eb90d86d156e44e11068474454da54e28780902523cd09) |
+| `faithful-and-natural` | certified | 100 | 100 | 100 | **true** | 3–0 | `74de75e8…` | [↗](https://explorer-studio.genlayer.com/tx/0xd8c618fd424d5e935de0f607795aa4902d24e30568179b98d8f0f76c8a1ad267) |
+| `faithful-but-clumsy` | certified **with reservations** | 95 | 100 | **30** | **true** | 3–0 | `6367e8b6…` | [↗](https://explorer-studio.genlayer.com/tx/0xbc1940f996429a6df0a246d89d5d49dd4f15ec3a444d810c934880d2f3a4c0eb) |
+| `numbers-moved` | rejected · `number_changed` | **20** | 100 | 95 | false | 3–0 | `77b00bf0…` | [↗](https://explorer-studio.genlayer.com/tx/0x6d63a65533366467fe56c5afa86c4ac74608e360ebd5788b10927029597d0a18) |
+| `half-translated` | rejected · `omission`, `untranslated` | 100 | **35** | 30 | false | 3–2 | `6f915f2d…` | [↗](https://explorer-studio.genlayer.com/tx/0x4339235b3ac2b1c6a9701c3d1f7dd3f659a2ac91743d3a0637c103f71eba454d) |
+| `terms-part-1` | certified | 99 | 100 | 97 | **true** | 3–0 | `18502a70…` | [↗](https://explorer-studio.genlayer.com/tx/0xe180a2948c0c348ece9cc9dca86c0ef02f4f169d22a9be25502994394b903e55) |
+| `terms-part-2` | certified | 100 | 100 | 100 | **true** | 3–0 | `898bdd71…` | [↗](https://explorer-studio.genlayer.com/tx/0xf5f1f0eb8638969a3a008c01e5b47fafea0d5020bc32a1d1d305c647c7c8f83a) |
 
-Then two more transactions, neither of which asked a model anything:
+Then three more transactions. The first two asked no model anything; the third
+asked every validator to fetch a file.
 
 | step | votes | result | tx |
 |---|---|---|---|
-| `manifest("acme-terms-in-two-parts", [part-1, part-2])` | 3–0 | `manifest_hash 8a43f0b5…`, **certified_now: true** | [↗](https://explorer-studio.genlayer.com/tx/0x630247aaa7c10b4c1e6538513bd2441458693d70215249162b628bceba9c0a0b) |
-| `certify` the faithful pair again under a new name | 3–0 | **refused**: *this exact source and translation are already certified as faithful-and-natural; a certificate is not asked for twice* | [↗](https://explorer-studio.genlayer.com/tx/0x9075f93305b7cae53844f7fce7d08ad4d97870cecfaf5e31a73344af8b8d19c2) |
+| `manifest("acme-terms-in-two-parts", [part-1, part-2])` | 5–0 | `manifest_hash 8a43f0b5…`, **certified_now: true** | [↗](https://explorer-studio.genlayer.com/tx/0x8ad1e1dee39467163530d93975941e2da4c5103815c3afb2f2f814249dda441f) |
+| `certify` the faithful pair again under a new name | 3–0 | **refused**: *this exact source and translation are already certified as faithful-and-natural; a certificate is not asked for twice* | [↗](https://explorer-studio.genlayer.com/tx/0x124e746af968aaae1fbcfb09913e2eec40c90ff7e8224f5c65aaede7799f3199) |
+| `bind_domain("faithful-one.vercel.app")` | 3–0 | every validator fetched [`/.well-known/faithful.json`](https://faithful-one.vercel.app/.well-known/faithful.json) and found the author's address: **bound**; `is_bound(0x0A9fd8Fe…, faithful-one.vercel.app)` is true | [↗](https://explorer-studio.genlayer.com/tx/0x5469d9493621cb9517522fc4f2232347ce86ebc104c39f5b6a85d16d1959e84a) |
 
-**`faithful-but-clumsy` is the one that matters.** Fidelity 97, coverage 100,
-fluency **30** — and it certifies. Every commitment in the passage survived —
-20 USD, 0.10 USD, 14 days, 30 days, 2 business days — in a word-for-word
+And from a second wallet, `0x449ab0B80539A6358d6a78664221de0A1d96C65A`, which
+the well-known file does not name:
+
+| step | result | tx |
+|---|---|---|
+| `publish` of the same source hash | accepted: two publishers on the row, neither authoritative | to be added |
+| `bind_domain("faithful-one.vercel.app")` | **refused by the validators**: *faithful-one.vercel.app does not name 0x449ab0B8… in /.well-known/faithful.json* | to be added |
+
+**`faithful-but-clumsy` is the one that matters.** Fidelity 95, coverage 100,
+fluency **30**, and it certifies. Every commitment in the passage survived
+(20 USD, 0.10 USD, 14 days, 30 days, 2 business days) in a word-for-word
 rendering that no Persian reader would write. A checker that collapsed these
 into one score would have thrown away a translation that was completely correct.
 
-**`half-translated` is its mirror.** Fidelity 95 — everything it does say is
-accurate — and it is refused anyway, on coverage 35, because four of the five
+**`half-translated` is its mirror.** Fidelity 100, everything it does say is
+accurate, and it is refused anyway, on coverage 35, because four of the five
 sentences are still in English. One number covering both cases would have to
 call these two documents similar. They are opposites.
 
 **`numbers-moved` is what the whole thing is for.** 20 USD became 35 USD and
-30 days notice became 7. Fluency 90: it reads perfectly. That is exactly why
+30 days notice became 7. Fluency 95: it reads perfectly. That is exactly why
 fluency cannot be allowed to decide anything.
 
 **The manifest is the document.** The same passage was judged again in two
 parts, and `is_document_certified(8a43f0b5…)` is true because both parts
-passed. `terms-part-1` and `terms-part-2` carry no publisher: nobody published
+passed. `terms-part-1` and `terms-part-2` list no publishers: nobody published
 the hashes of the halves, and the contract does not pretend otherwise.
+
+**The host is the provenance.** A signature can only say "this wallet claims
+these bytes". The binding says what the validators checked: the site's owner
+put this address in a file only they can write. A bounty that names the
+publisher and the host pays only when both hold.
 
 Read any of it back without spending a transaction:
 
 ```
-gl.get_contract_at(addr).view().is_certified_hash("74de75e8…")         → true
-gl.get_contract_at(addr).view().is_document_certified("8a43f0b5…")     → true
-gl.get_contract_at(addr).view().certificate("half-translated")          → the scores, defects, hashes and publisher
-gl.get_contract_at(addr).view().texts("numbers-moved")                  → the exact pair judged
+gl.get_contract_at(addr).view().is_certified_hash("74de75e8…")                     → true
+gl.get_contract_at(addr).view().is_document_certified("8a43f0b5…")                 → true
+gl.get_contract_at(addr).view().is_published_by("0x0A9fd8Fe…", "6530eef7…")        → true
+gl.get_contract_at(addr).view().is_bound("0x0A9fd8Fe…", "faithful-one.vercel.app") → true
+gl.get_contract_at(addr).view().certificate("half-translated")                      → the scores, defects, hashes and publishers
+gl.get_contract_at(addr).view().texts("numbers-moved")                              → the exact pair judged
 ```
 ## What validators must agree on
 

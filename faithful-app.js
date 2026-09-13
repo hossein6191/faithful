@@ -1054,5 +1054,9 @@ try { savedMode = localStorage.getItem("faithful_mode") === "free" ? "free" : "g
 setMode(savedMode);
 counts();
 sayNext();
-const saved = localStorage.getItem("faithful_register");
-if (saved) { log("loading " + saved + " …"); useRegister(saved); }
+/* The register deployed from the author's wallet on 13 September 2026 (see the README's evidence).
+   A first visit loads it, so the page works with nobody around; a register you loaded yourself is remembered instead. */
+const DEMO_REGISTER = "0xA989Df25f7b94c6c7dA29EAeBFC4C97A0B6E20Cb";
+let saved = null; try { saved = localStorage.getItem("faithful_register"); } catch (e) {}
+const first = saved || DEMO_REGISTER;
+if (first) { log("loading " + first + (saved ? "" : " (the demo register)") + " …"); useRegister(first); }

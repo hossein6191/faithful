@@ -29,7 +29,7 @@ const rpc = async (m, p) => {
 let pass = 0, fail = 0;
 const ok = (n, c, d = "") => { c ? pass++ : fail++; console.log(`${c ? "PASS" : "FAIL"}  ${n}${d ? "  — " + d : ""}`); };
 
-const REGISTER = process.env.REGISTER || "0x56C9114865b945d3E164fBC1bEc91893FFB0E6A2";
+const REGISTER = process.env.REGISTER || "0xA989Df25f7b94c6c7dA29EAeBFC4C97A0B6E20Cb";
 // the certificates the bounties are for, by name; their pair hashes are read from the register
 const CERT_OK = process.env.CERT_OK || "faithful-but-clumsy";
 const CERT_BAD = process.env.CERT_BAD || "numbers-moved";
